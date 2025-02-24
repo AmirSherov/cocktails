@@ -1,0 +1,105 @@
+@import './base.css';
+
+#app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-weight: normal;
+}
+
+a,
+.green {
+  text-decoration: none;
+  color: hsla(160, 100%, 37%, 1);
+  transition: 0.4s;
+  padding: 3px;
+}
+
+@media (hover: hover) {
+  a:hover {
+    background-color: hsla(160, 100%, 37%, 0.2);
+  }
+}
+
+@media (min-width: 1024px) {
+  body {
+    display: flex;
+    place-items: center;
+  }
+
+  #app {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 0 2rem;
+  }
+}
+
+/* Общие стили для таблиц */
+.v-data-table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.v-data-table .v-data-table-header {
+  background-color: #f5f5f5;
+}
+
+.v-data-table .v-data-table__wrapper {
+  border-radius: 8px;
+}
+
+/* Стили для карточек */
+.v-card {
+  border-radius: 8px !important;
+}
+
+.v-card-title {
+  padding: 16px !important;
+}
+
+/* Стили для кнопок */
+.v-btn {
+  text-transform: none !important;
+}
+
+/* Стили для диалоговых окон */
+.v-dialog .v-card {
+  padding: 16px;
+}
+
+/* Стили для полей ввода */
+.v-text-field .v-input__slot {
+  border-radius: 8px;
+}
+
+/* Стили для чипов */
+.v-chip {
+  font-weight: 500;
+}
+
+/* Отступы для контейнеров */
+.v-container {
+  padding: 16px;
+}
+
+/* Стили для заголовков */
+h2 {
+  font-size: 1.5rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+/* Стили для иконок */
+.v-icon {
+  font-size: 20px;
+}
+
+/* Стили для активных элементов */
+.v-list-item--active {
+  font-weight: 500;
+}
+
+/* Стили для поиска */
+.search-field {
+  max-width: 300px;
+}
