@@ -6,7 +6,7 @@
         <v-text-field
           v-model="search"
           append-icon="mdi-magnify"
-          label="Поиск"
+          label="Поиск по описанию и другим полям"
           single-line
           hide-details
           class="mx-4"
@@ -19,39 +19,40 @@
         <v-tab>Закрытые тикеты</v-tab>
       </v-tabs>
 
-      <v-tabs-items v-model="activeTab">
-        <v-tab-item>
-          <v-data-table
-            :headers="headers"
-            :items="openTickets"
-            :search="search"
-            :loading="loading"
+      <v-data-table
+        :headers="headers"
+        :items="filteredTickets"
+        :search="search"
+        :custom-filter="customFilter"
+        :loading="loading"
+      >
+        <template v-slot:[`item.status`]="{ item }">
+          <v-chip
+            :color="item.status === 'open' ? 'success' : 'error'"
+            text-color="white"
+            small
           >
-            <template v-slot:item.actions="{ item }">
-              <v-btn color="primary" small @click="closeTicket(item)">
-                Закрыть тикет
-              </v-btn>
-            </template>
-          </v-data-table>
-        </v-tab-item>
-
-        <v-tab-item>
-          <v-data-table
-            :headers="headers"
-            :items="closedTickets"
-            :search="search"
-            :loading="loading"
+            {{ item.status }}
+          </v-chip>
+        </template>
+        <template v-slot:[`item.actions`]="{ item }">
+          <v-btn 
+            v-if="item.status === 'open'"
+            color="primary" 
+            small 
+            @click="closeTicket(item)"
           >
-          </v-data-table>
-        </v-tab-item>
-      </v-tabs-items>
+            Закрыть тикет
+          </v-btn>
+        </template>
+      </v-data-table>
     </v-card>
   </v-container>
 </template>
 
 <script>
 import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
+import axios from '@/plugins/axios'
 import { useToast } from 'vue-toastification'
 
 export default {
@@ -65,25 +66,37 @@ export default {
 
     const headers = [
       { title: 'ID', key: 'id' },
+      { title: 'Тема', key: 'subject' },
+      { title: 'Описание', key: 'description' },
       { title: 'Статус', key: 'status' },
+      { title: 'Email пользователя', key: 'user.email' },
+      { title: 'Телефон', key: 'user.phone' },
+      { title: 'Дата создания', key: 'created_at' },
       { title: 'Действия', key: 'actions', sortable: false }
     ]
 
-    const openTickets = computed(() => {
-      return tickets.value.filter(ticket => ticket.status !== 'close')
-    })
-
-    const closedTickets = computed(() => {
-      return tickets.value.filter(ticket => ticket.status === 'close')
+    const filteredTickets = computed(() => {
+      return tickets.value.filter(ticket => 
+        activeTab.value === 0 ? ticket.status === 'open' : ticket.status === 'close'
+      )
     })
 
     const fetchTickets = async () => {
       loading.value = true
       try {
-        const response = await axios.get('/api/admin/sup/')
-        tickets.value = response.data
+        const response = await axios.get('/admin/sup/')
+        console.log('Response data:', response.data)
+        tickets.value = Array.isArray(response.data) ? response.data : response.data.results || []
+        tickets.value = tickets.value.map(ticket => ({
+          ...ticket,
+          created_at: new Date(ticket.created_at).toLocaleString('ru-RU'),
+          'user.email': ticket.user?.email || '',
+          'user.phone': ticket.user?.phone || ''
+        }))
       } catch (error) {
+        console.error('Error loading tickets:', error)
         toast.error('Ошибка при загрузке тикетов')
+        tickets.value = []
       }
       loading.value = false
     }
@@ -92,10 +105,18 @@ export default {
       if (search.value) {
         loading.value = true
         try {
-          const response = await axios.get(`/api/admin/sup/?search=${search.value}`)
-          tickets.value = response.data
+          const response = await axios.get(`/admin/sup/?search=${search.value}`)
+          tickets.value = Array.isArray(response.data) ? response.data : response.data.results || []
+          tickets.value = tickets.value.map(ticket => ({
+            ...ticket,
+            created_at: new Date(ticket.created_at).toLocaleString('ru-RU'),
+            'user.email': ticket.user?.email || '',
+            'user.phone': ticket.user?.phone || ''
+          }))
         } catch (error) {
+          console.error('Error searching tickets:', error)
           toast.error('Ошибка при поиске')
+          tickets.value = []
         }
         loading.value = false
       } else {
@@ -105,12 +126,23 @@ export default {
 
     const closeTicket = async (item) => {
       try {
-        await axios.patch(`/api/admin/sup/${item.id}/`, { status: 'close' })
+        await axios.patch(`/admin/sup/${item.id}/`, { status: 'close' })
         toast.success('Тикет успешно закрыт')
         fetchTickets()
       } catch (error) {
+        console.error('Error closing ticket:', error)
         toast.error('Ошибка при закрытии тикета')
       }
+    }
+
+    const customFilter = (value, search, item) => {
+      if (item.description && item.description.toLowerCase().includes(search.toLowerCase())) {
+        return true
+      }
+      return value != null &&
+        search != null &&
+        typeof value === 'string' &&
+        value.toString().toLowerCase().indexOf(search.toLowerCase()) !== -1
     }
 
     onMounted(() => {
@@ -123,10 +155,10 @@ export default {
       activeTab,
       tickets,
       headers,
-      openTickets,
-      closedTickets,
+      filteredTickets,
       handleSearch,
-      closeTicket
+      closeTicket,
+      customFilter
     }
   }
 }

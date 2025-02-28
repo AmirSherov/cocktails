@@ -1,26 +1,11 @@
 <template>
-  <v-container>
-    <!-- Таблица конфигурации начисления баллов -->
-    <v-card class="mb-4">
-      <v-card-title>Начисления баллов</v-card-title>
-      <v-data-table
-        :headers="configHeaders"
-        :items="pointsConfig"
-        :loading="loadingConfig"
-      >
-        <template v-slot:item.actions="{ item }">
-          <v-btn icon small @click="editConfig(item)">
-            <v-icon>mdi-pencil</v-icon>
-          </v-btn>
-        </template>
-      </v-data-table>
-    </v-card>
-
-    <!-- Таблица пользователей с баллами -->
+  <v-container fluid>
     <v-card>
-      <v-card-title class="d-flex align-center justify-space-between">
-        <h2>Баллы пользователей</h2>
+      <v-card-title class="d-flex align-center">
+        <h2>Баллы</h2>
+        <v-spacer></v-spacer>
         <v-text-field
+          v-if="activeTab === 1"
           v-model="search"
           append-icon="mdi-magnify"
           label="Поиск"
@@ -31,39 +16,68 @@
         />
       </v-card-title>
 
-      <v-data-table
-        :headers="headers"
-        :items="users"
-        :search="search"
-        :loading="loading"
-        @click:row="expandRow"
-      >
-        <template v-slot:expanded-row="{ columns, item }">
-          <tr>
-            <td :colspan="columns.length">
-              <v-card flat>
-                <v-card-title class="d-flex justify-space-between">
-                  <span>История операций</span>
-                  <v-btn color="primary" @click="openPointDialog(item)">
-                    Добавить операцию
-                  </v-btn>
-                </v-card-title>
-                <v-data-table
-                  :headers="historyHeaders"
-                  :items="item.history || []"
-                  hide-default-footer
+      <v-tabs v-model="activeTab">
+        <v-tab>Начисления баллов</v-tab>
+        <v-tab>Баллы пользователей</v-tab>
+      </v-tabs>
+
+      <v-card-text>
+        <!-- Таблица конфигурации начисления баллов -->
+        <v-data-table
+          v-if="activeTab === 0"
+          :headers="configHeaders"
+          :items="pointsConfig"
+          :loading="loadingConfig"
+        >
+          <template v-slot:item.actions="{ item }">
+            <v-btn icon small @click="editConfig(item)">
+              <v-icon>mdi-pencil</v-icon>
+            </v-btn>
+          </template>
+        </v-data-table>
+
+        <!-- Таблица пользователей с баллами -->
+        <v-data-table
+          v-else
+          :headers="headers"
+          :items="users"
+          :search="search"
+          :loading="loading"
+        >
+          <template v-slot:item.actions="{ item }">
+            <v-tooltip bottom>
+              <template v-slot:activator="{ on, attrs }">
+                <v-btn
+                  icon
+                  color="primary"
+                  class="mr-2"
+                  v-bind="attrs"
+                  v-on="on"
+                  @click="showHistory(item)"
                 >
-                  <template v-slot:item.charge="{ item }">
-                    <v-chip :color="item.charge ? 'error' : 'success'">
-                      {{ item.charge ? 'Списание' : 'Начисление' }}
-                    </v-chip>
-                  </template>
-                </v-data-table>
-              </v-card>
-            </td>
-          </tr>
-        </template>
-      </v-data-table>
+                  <v-icon>mdi-history</v-icon>
+                </v-btn>
+              </template>
+              <span>История операций</span>
+            </v-tooltip>
+
+            <v-tooltip bottom>
+              <template v-slot:activator="{ on, attrs }">
+                <v-btn
+                  icon
+                  color="success"
+                  v-bind="attrs"
+                  v-on="on"
+                  @click="openPointDialog(item)"
+                >
+                  <v-icon>mdi-plus-circle</v-icon>
+                </v-btn>
+              </template>
+              <span>Добавить операцию</span>
+            </v-tooltip>
+          </template>
+        </v-data-table>
+      </v-card-text>
     </v-card>
 
     <!-- Диалог редактирования конфигурации -->
@@ -75,12 +89,14 @@
             <v-text-field
               v-model="editedConfig.name"
               label="Название"
+              :rules="[v => !!v || 'Обязательное поле']"
               required
             />
             <v-text-field
               v-model.number="editedConfig.value"
               label="Значение"
               type="number"
+              :rules="[v => !!v || 'Обязательное поле']"
               required
             />
           </v-form>
@@ -103,11 +119,16 @@
               v-model.number="editedPoint.points"
               label="Баллы"
               type="number"
+              :rules="[
+                v => !!v || 'Обязательное поле',
+                v => v > 0 || 'Значение должно быть больше 0'
+              ]"
               required
             />
             <v-text-field
               v-model="editedPoint.text"
               label="Описание"
+              :rules="[v => !!v || 'Обязательное поле']"
               required
             />
             <v-switch
@@ -123,12 +144,40 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Диалог истории операций -->
+    <v-dialog v-model="historyDialog" max-width="900px">
+      <v-card>
+        <v-card-title class="d-flex justify-space-between">
+          <span>История операций пользователя {{ selectedUser?.email }}</span>
+          <v-btn icon @click="closeHistoryDialog">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-card-text>
+          <v-data-table
+            :headers="historyHeaders"
+            :items="selectedUser?.points || []"
+            :loading="false"
+          >
+            <template v-slot:item.charge="{ item }">
+              <v-chip :color="item.charge ? 'error' : 'success'" text-color="white">
+                {{ item.charge ? 'Списание' : 'Начисление' }}
+              </v-chip>
+            </template>
+            <template v-slot:item.created_at="{ item }">
+              {{ new Date(item.created_at).toLocaleString('ru-RU') }}
+            </template>
+          </v-data-table>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import axios from '@/plugins/axios'
 import { useToast } from 'vue-toastification'
 
 export default {
@@ -145,12 +194,19 @@ export default {
     const validConfig = ref(false)
     const validPoint = ref(false)
     const selectedUser = ref(null)
+    const configForm = ref(null)
+    const pointForm = ref(null)
+    const activeTab = ref(0)
+    const historyDialog = ref(false)
+    const loadingHistory = ref(false)
+    const userHistory = ref([])
 
     const headers = [
       { title: 'ID', key: 'id' },
       { title: 'Email', key: 'email' },
       { title: 'Телефон', key: 'phone' },
-      { title: 'Всего баллов', key: 'total_points' }
+      { title: 'Всего баллов', key: 'total_points' },
+      { title: 'Действия', key: 'actions', sortable: false }
     ]
 
     const configHeaders = [
@@ -196,10 +252,14 @@ export default {
     const fetchUsers = async () => {
       loading.value = true
       try {
-        const response = await axios.get('/api/admin/point/')
-        users.value = response.data
+        const response = await axios.get('/admin/point/')
+        console.log('Points response:', response.data)
+        users.value = Array.isArray(response.data) ? response.data : 
+                     response.data.results ? response.data.results : []
       } catch (error) {
+        console.error('Error loading users:', error)
         toast.error('Ошибка при загрузке пользователей')
+        users.value = []
       }
       loading.value = false
     }
@@ -207,10 +267,14 @@ export default {
     const fetchConfig = async () => {
       loadingConfig.value = true
       try {
-        const response = await axios.get('/api/admin/point/config/')
-        pointsConfig.value = response.data
+        const response = await axios.get('/admin/point/config/')
+        console.log('Config response:', response.data)
+        pointsConfig.value = Array.isArray(response.data) ? response.data : 
+                            response.data.results ? response.data.results : []
       } catch (error) {
+        console.error('Error loading config:', error)
         toast.error('Ошибка при загрузке конфигурации')
+        pointsConfig.value = []
       }
       loadingConfig.value = false
     }
@@ -219,10 +283,14 @@ export default {
       if (search.value) {
         loading.value = true
         try {
-          const response = await axios.get(`/api/admin/point/?search=${search.value}`)
-          users.value = response.data
+          const response = await axios.get(`/admin/point/?search=${search.value}`)
+          console.log('Search response:', response.data)
+          users.value = Array.isArray(response.data) ? response.data : 
+                       response.data.results ? response.data.results : []
         } catch (error) {
+          console.error('Error searching:', error)
           toast.error('Ошибка при поиске')
+          users.value = []
         }
         loading.value = false
       } else {
@@ -230,17 +298,14 @@ export default {
       }
     }
 
-    const expandRow = (item) => {
-      if (!item.history) {
-        // Загружаем историю операций при первом раскрытии
-        axios.get(`/api/admin/point/?user=${item.id}`)
-          .then(response => {
-            item.history = response.data
-          })
-          .catch(() => {
-            toast.error('Ошибка при загрузке истории операций')
-          })
-      }
+    const showHistory = (item) => {
+      selectedUser.value = item
+      historyDialog.value = true
+    }
+
+    const closeHistoryDialog = () => {
+      historyDialog.value = false
+      selectedUser.value = null
     }
 
     const editConfig = (item) => {
@@ -254,12 +319,15 @@ export default {
     }
 
     const saveConfig = async () => {
+      if (!configForm.value.validate()) return
+
       try {
-        await axios.patch(`/api/admin/point/config/${editedConfig.value.id}/`, editedConfig.value)
+        await axios.patch(`/admin/point/config/${editedConfig.value.id}/`, editedConfig.value)
         toast.success('Конфигурация успешно обновлена')
         closeConfigDialog()
         fetchConfig()
       } catch (error) {
+        console.error('Error saving config:', error)
         toast.error('Ошибка при сохранении конфигурации')
       }
     }
@@ -277,16 +345,22 @@ export default {
     }
 
     const savePoint = async () => {
+      if (!pointForm.value.validate()) return
+
       try {
-        await axios.post('/api/admin/point/', editedPoint.value)
+        await axios.post('/admin/point/', {
+          ...editedPoint.value,
+          user: selectedUser.value.id
+        })
         toast.success('Операция успешно создана')
         closePointDialog()
-        // Обновляем данные пользователя
-        if (selectedUser.value) {
-          expandRow(selectedUser.value)
-        }
+        // Обновляем данные пользователя и его историю
         fetchUsers()
+        if (selectedUser.value) {
+          showHistory(selectedUser.value)
+        }
       } catch (error) {
+        console.error('Error saving point:', error)
         toast.error('Ошибка при создании операции')
       }
     }
@@ -311,8 +385,14 @@ export default {
       editedPoint,
       validConfig,
       validPoint,
+      configForm,
+      pointForm,
+      activeTab,
+      historyDialog,
+      selectedUser,
       handleSearch,
-      expandRow,
+      showHistory,
+      closeHistoryDialog,
       editConfig,
       closeConfigDialog,
       saveConfig,

@@ -1,16 +1,16 @@
 <template>
-  <v-container>
-    <v-card>
+  <v-container fluid class="pa-0">
+    <v-card class="full-width-card">
       <v-card-title class="d-flex align-center justify-space-between">
-        <h2>Промокоды</h2>
-        <div class="d-flex align-center">
+        <h5>Промокоды</h5>
+        <div class="d-flex align-center px-10">
           <v-text-field
             v-model="search"
             append-icon="mdi-magnify"
             label="Поиск по названию и описанию"
             single-line
             hide-details
-            class="mx-4"
+            class="mx-20"
             @input="handleSearch"
           />
           <v-btn color="primary" @click="openCreateDialog">
@@ -24,57 +24,94 @@
         :items="promos"
         :search="search"
         :loading="loading"
-        @click:row="expandRow"
+        class="promo-table elevation-1"
       >
-        <template v-slot:expanded-row="{ columns, item }">
-          <tr>
-            <td :colspan="columns.length">
-              <v-card flat>
-                <v-card-title class="d-flex justify-space-between">
-                  <span>Покупки промокода</span>
-                  <div class="d-flex align-center">
-                    <v-text-field
-                      v-model="purchaseSearch"
-                      append-icon="mdi-magnify"
-                      label="Поиск по ID пользователя или дате"
-                      single-line
-                      hide-details
-                      class="mx-4"
-                      @input="() => handlePurchaseSearch(item.id)"
-                    />
-                    <v-btn color="primary" @click="openPurchaseDialog(item)">
-                      Добавить покупку
-                    </v-btn>
-                  </div>
-                </v-card-title>
-                <v-data-table
-                  :headers="purchaseHeaders"
-                  :items="item.purchases || []"
-                  hide-default-footer
-                >
-                  <template v-slot:item.actions="{ item: purchase }">
-                    <v-btn icon small @click="deletePurchase(purchase)" color="error">
-                      <v-icon>mdi-delete</v-icon>
-                    </v-btn>
-                  </template>
-                </v-data-table>
-              </v-card>
-            </td>
-          </tr>
+        <template #[`item.actions`]="{ item }">
+          <v-tooltip bottom>
+            <template #activator="{ on, attrs }">
+              <v-btn
+                icon
+                color="primary"
+                class="mr-2"
+                v-bind="attrs"
+                v-on="on"
+                @click.stop="editPromo(item)"
+              >
+                <v-icon>mdi-pencil</v-icon>
+              </v-btn>
+            </template>
+            <span>Редактировать</span>
+          </v-tooltip>
+
+          <v-tooltip bottom>
+            <template #activator="{ on, attrs }">
+              <v-btn
+                icon
+                color="error"
+                v-bind="attrs"
+                v-on="on"
+                @click.stop="deletePromo(item)"
+              >
+                <v-icon>mdi-delete</v-icon>
+              </v-btn>
+            </template>
+            <span>Удалить</span>
+          </v-tooltip>
         </template>
 
-        <template v-slot:item.actions="{ item }">
-          <v-btn icon small @click="editPromo(item)">
-            <v-icon>mdi-pencil</v-icon>
-          </v-btn>
-          <v-btn icon small @click="deletePromo(item)" color="error">
-            <v-icon>mdi-delete</v-icon>
-          </v-btn>
+        <template #expanded-item="{ item }">
+          <td :colspan="headers.length">
+            <v-card flat>
+              <v-card-title class="d-flex justify-space-between">
+                <span>Покупки промокода</span>
+                <div class="d-flex align-center">
+                  <v-text-field
+                    v-model="purchaseSearch"
+                    append-icon="mdi-magnify"
+                    label="Поиск по ID пользователя или дате"
+                    single-line
+                    hide-details
+                    class="mx-4"
+                    @input="() => handlePurchaseSearch(item.id)"
+                  />
+                  <v-btn color="primary" @click.stop="openPurchaseDialog(item)">
+                    Добавить покупку
+                  </v-btn>
+                </div>
+              </v-card-title>
+              <v-data-table
+                :headers="purchaseHeaders"
+                :items="item.purchases || []"
+                :loading="item.loadingPurchases"
+                hide-default-footer
+              >
+                <template #[`item.purchased_at`]="{ item: purchase }">
+                  {{ formatDate(purchase.purchased_at) }}
+                </template>
+                <template #[`item.actions`]="{ item: purchase }">
+                  <v-tooltip bottom>
+                    <template #activator="{ on, attrs }">
+                      <v-btn
+                        icon
+                        small
+                        color="error"
+                        v-bind="attrs"
+                        v-on="on"
+                        @click.stop="deletePurchase(purchase)"
+                      >
+                        <v-icon>mdi-delete</v-icon>
+                      </v-btn>
+                    </template>
+                    <span>Удалить</span>
+                  </v-tooltip>
+                </template>
+              </v-data-table>
+            </v-card>
+          </td>
         </template>
       </v-data-table>
     </v-card>
 
-    <!-- Диалог создания/редактирования промокода -->
     <v-dialog v-model="dialog" max-width="600px">
       <v-card>
         <v-card-title>
@@ -85,35 +122,55 @@
             <v-text-field
               v-model="editedItem.name"
               label="Название"
+              :rules="[v => !!v || 'Обязательное поле']"
+              required
+            />
+            <v-text-field
+              v-model="editedItem.code"
+              label="Код"
+              :rules="[v => !!v || 'Обязательное поле']"
               required
             />
             <v-textarea
               v-model="editedItem.description"
               label="Описание"
+              :rules="[v => !!v || 'Обязательное поле']"
               required
             />
             <v-text-field
               v-model="editedItem.links"
               label="Ссылка"
+              :rules="[v => !!v || 'Обязательное поле']"
               required
             />
             <v-text-field
               v-model.number="editedItem.cost"
               label="Цена"
               type="number"
+              :rules="[
+                v => !!v || 'Обязательное поле',
+                v => v > 0 || 'Цена должна быть больше 0'
+              ]"
               required
             />
           </v-form>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn color="error" text @click="closeDialog">Отмена</v-btn>
-          <v-btn color="success" text @click="savePromo">Сохранить</v-btn>
+          <v-btn color="error" text @click="closeDialog" :disabled="saving">Отмена</v-btn>
+          <v-btn 
+            color="success" 
+            text 
+            @click="savePromo" 
+            :disabled="!valid || saving"
+            :loading="saving"
+          >
+            Сохранить
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Диалог создания покупки -->
     <v-dialog v-model="purchaseDialog" max-width="500px">
       <v-card>
         <v-card-title>Добавить покупку промокода</v-card-title>
@@ -123,14 +180,47 @@
               v-model.number="editedPurchase.user"
               label="ID пользователя"
               type="number"
+              :rules="[
+                v => !!v || 'Обязательное поле',
+                v => v > 0 || 'ID должен быть больше 0'
+              ]"
               required
             />
           </v-form>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn color="error" text @click="closePurchaseDialog">Отмена</v-btn>
-          <v-btn color="success" text @click="savePurchase">Сохранить</v-btn>
+          <v-btn color="error" text @click="closePurchaseDialog" :disabled="savingPurchase">Отмена</v-btn>
+          <v-btn 
+            color="success" 
+            text 
+            @click="savePurchase" 
+            :disabled="!validPurchase || savingPurchase"
+            :loading="savingPurchase"
+          >
+            Сохранить
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="deleteDialog" max-width="400px">
+      <v-card>
+        <v-card-title>Подтверждение удаления</v-card-title>
+        <v-card-text>
+          {{ deleteMessage }}
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn color="primary" text @click="deleteDialog = false">Отмена</v-btn>
+          <v-btn 
+            color="error" 
+            text 
+            @click="confirmDelete"
+            :loading="deleting"
+          >
+            Удалить
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -139,7 +229,7 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import axios from '@/plugins/axios'
 import { useToast } from 'vue-toastification'
 
 export default {
@@ -149,34 +239,45 @@ export default {
     const search = ref('')
     const purchaseSearch = ref('')
     const loading = ref(false)
+    const saving = ref(false)
+    const savingPurchase = ref(false)
+    const deleting = ref(false)
     const dialog = ref(false)
     const purchaseDialog = ref(false)
+    const deleteDialog = ref(false)
     const isEditing = ref(false)
     const promos = ref([])
     const valid = ref(false)
     const validPurchase = ref(false)
+    const form = ref(null)
+    const purchaseForm = ref(null)
     const selectedPromo = ref(null)
+    const deleteMessage = ref('')
+    const itemToDelete = ref(null)
+    const deleteType = ref('') 
 
     const headers = [
-      { title: 'ID', key: 'id' },
-      { title: 'Название', key: 'name' },
-      { title: 'Описание', key: 'description' },
-      { title: 'Ссылка', key: 'links' },
-      { title: 'Цена', key: 'cost' },
-      { title: 'Количество покупок', key: 'how_much_purchased' },
-      { title: 'Действия', key: 'actions', sortable: false }
+      { title: 'ID', key: 'id', width: '80px' },
+      { title: 'Название', key: 'name', width: '15%' },
+      { title: 'Код', key: 'code', width: '15%' },
+      { title: 'Описание', key: 'description', width: '20%' },
+      { title: 'Ссылка', key: 'links', width: '20%' },
+      { title: 'Цена', key: 'cost', width: '100px' },
+      { title: 'Количество покупок', key: 'how_much_purchased', width: '150px' },
+      { title: 'Действия', key: 'actions', sortable: false, width: '120px' }
     ]
 
     const purchaseHeaders = [
-      { title: 'ID покупки', key: 'id' },
-      { title: 'ID пользователя', key: 'user' },
+      { title: 'ID покупки', key: 'id', width: '100px' },
+      { title: 'ID пользователя', key: 'user', width: '150px' },
       { title: 'Дата покупки', key: 'purchased_at' },
-      { title: 'Действия', key: 'actions', sortable: false }
+      { title: 'Действия', key: 'actions', sortable: false, width: '100px' }
     ]
 
     const editedItem = ref({
       id: null,
       name: '',
+      code: '',
       description: '',
       links: '',
       cost: 0
@@ -185,6 +286,7 @@ export default {
     const defaultItem = {
       id: null,
       name: '',
+      code: '',
       description: '',
       links: '',
       cost: 0
@@ -200,13 +302,21 @@ export default {
       promo: null
     }
 
+    const formatDate = (date) => {
+      if (!date) return ''
+      return new Date(date).toLocaleString('ru-RU')
+    }
+
     const fetchPromos = async () => {
       loading.value = true
       try {
-        const response = await axios.get('/api/admin/promo/')
-        promos.value = response.data
+        const response = await axios.get('/admin/promo/')
+        promos.value = Array.isArray(response.data) ? response.data : 
+                      response.data.results ? response.data.results : []
       } catch (error) {
+        console.error('Error loading promos:', error)
         toast.error('Ошибка при загрузке промокодов')
+        promos.value = []
       }
       loading.value = false
     }
@@ -215,10 +325,13 @@ export default {
       if (search.value) {
         loading.value = true
         try {
-          const response = await axios.get(`/api/admin/promo/?search=${search.value}`)
-          promos.value = response.data
+          const response = await axios.get(`/admin/promo/?search=${search.value}`)
+          promos.value = Array.isArray(response.data) ? response.data : 
+                        response.data.results ? response.data.results : []
         } catch (error) {
+          console.error('Error searching:', error)
           toast.error('Ошибка при поиске')
+          promos.value = []
         }
         loading.value = false
       } else {
@@ -232,28 +345,21 @@ export default {
       const item = promos.value.find(p => p.id === promoId)
       if (!item) return
 
+      item.loadingPurchases = true
       try {
         const response = await axios.get(
-          `/api/admin/promo/purchased/?promo=${promoId}${
+          `/admin/promo/purchased/?promo=${promoId}${
             purchaseSearch.value ? `&search=${purchaseSearch.value}` : ''
           }`
         )
-        item.purchases = response.data
+        item.purchases = Array.isArray(response.data) ? response.data :
+                        response.data.results ? response.data.results : []
       } catch (error) {
+        console.error('Error searching purchases:', error)
         toast.error('Ошибка при поиске покупок')
+        item.purchases = []
       }
-    }
-
-    const expandRow = (item) => {
-      if (!item.purchases) {
-        axios.get(`/api/admin/promo/purchased/?promo=${item.id}`)
-          .then(response => {
-            item.purchases = response.data
-          })
-          .catch(() => {
-            toast.error('Ошибка при загрузке покупок')
-          })
-      }
+      item.loadingPurchases = false
     }
 
     const openCreateDialog = () => {
@@ -271,34 +377,37 @@ export default {
     const closeDialog = () => {
       dialog.value = false
       editedItem.value = { ...defaultItem }
+      form.value?.resetValidation()
     }
 
     const savePromo = async () => {
+      if (!form.value?.validate()) return
+
+      saving.value = true
       try {
         if (isEditing.value) {
-          await axios.patch(`/api/admin/promo/${editedItem.value.id}/`, editedItem.value)
+          await axios.patch(`/admin/promo/${editedItem.value.id}/`, editedItem.value)
           toast.success('Промокод успешно обновлен')
         } else {
-          await axios.post('/api/admin/promo/', editedItem.value)
+          await axios.post('/admin/promo/', editedItem.value)
           toast.success('Промокод успешно создан')
         }
         closeDialog()
         fetchPromos()
       } catch (error) {
-        toast.error('Ошибка при сохранении промокода')
+        console.error('Error saving promo:', error)
+        const errorMessage = error.response?.data?.detail || 'Ошибка при сохранении промокода'
+        toast.error(errorMessage)
+      } finally {
+        saving.value = false
       }
     }
 
-    const deletePromo = async (item) => {
-      if (confirm('Вы уверены, что хотите удалить этот промокод?')) {
-        try {
-          await axios.delete(`/api/admin/promo/${item.id}/`)
-          toast.success('Промокод успешно удален')
-          fetchPromos()
-        } catch (error) {
-          toast.error('Ошибка при удалении промокода')
-        }
-      }
+    const deletePromo = (item) => {
+      deleteType.value = 'promo'
+      itemToDelete.value = item
+      deleteMessage.value = `Вы действительно хотите удалить промокод "${item.name}"?`
+      deleteDialog.value = true
     }
 
     const openPurchaseDialog = (promo) => {
@@ -311,34 +420,60 @@ export default {
       purchaseDialog.value = false
       editedPurchase.value = { ...defaultPurchase }
       selectedPromo.value = null
+      purchaseForm.value?.resetValidation()
     }
 
     const savePurchase = async () => {
+      if (!purchaseForm.value?.validate()) return
+
+      savingPurchase.value = true
       try {
-        await axios.post('/api/admin/promo/purchased/', editedPurchase.value)
+        await axios.post('/admin/promo/purchased/', editedPurchase.value)
         toast.success('Покупка успешно создана')
         closePurchaseDialog()
         if (selectedPromo.value) {
-          expandRow(selectedPromo.value)
+          handlePurchaseSearch(selectedPromo.value.id)
         }
-        fetchPromos()
+        fetchPromos() // Обновляем список для обновления счетчика покупок
       } catch (error) {
-        toast.error('Ошибка при создании покупки')
+        console.error('Error creating purchase:', error)
+        const errorMessage = error.response?.data?.detail || 'Ошибка при создании покупки'
+        toast.error(errorMessage)
+      } finally {
+        savingPurchase.value = false
       }
     }
 
-    const deletePurchase = async (purchase) => {
-      if (confirm('Вы уверены, что хотите удалить эту покупку?')) {
-        try {
-          await axios.delete(`/api/admin/promo/purchased/${purchase.id}/`)
-          toast.success('Покупка успешно удалена')
-          if (selectedPromo.value) {
-            expandRow(selectedPromo.value)
-          }
+    const deletePurchase = (item) => {
+      deleteType.value = 'purchase'
+      itemToDelete.value = item
+      deleteMessage.value = `Вы действительно хотите удалить покупку #${item.id}?`
+      deleteDialog.value = true
+    }
+
+    const confirmDelete = async () => {
+      deleting.value = true
+      try {
+        if (deleteType.value === 'promo') {
+          await axios.delete(`/admin/promo/${itemToDelete.value.id}/`)
+          toast.success('Промокод успешно удален')
           fetchPromos()
-        } catch (error) {
-          toast.error('Ошибка при удалении покупки')
+        } else if (deleteType.value === 'purchase') {
+          await axios.delete(`/admin/promo/purchased/${itemToDelete.value.id}/`)
+          toast.success('Покупка успешно удалена')
+          // Обновляем список покупок для текущего промокода
+          const promoItem = promos.value.find(p => p.purchases?.some(pur => pur.id === itemToDelete.value.id))
+          if (promoItem) {
+            handlePurchaseSearch(promoItem.id)
+          }
+          fetchPromos() // Обновляем список для обновления счетчика покупок
         }
+      } catch (error) {
+        console.error('Error deleting:', error)
+        toast.error(`Ошибка при удалении ${deleteType.value === 'promo' ? 'промокода' : 'покупки'}`)
+      } finally {
+        deleteDialog.value = false
+        deleting.value = false
       }
     }
 
@@ -350,8 +485,12 @@ export default {
       search,
       purchaseSearch,
       loading,
+      saving,
+      savingPurchase,
+      deleting,
       dialog,
       purchaseDialog,
+      deleteDialog,
       isEditing,
       promos,
       headers,
@@ -360,9 +499,12 @@ export default {
       editedPurchase,
       valid,
       validPurchase,
+      form,
+      purchaseForm,
+      deleteMessage,
+      formatDate,
       handleSearch,
       handlePurchaseSearch,
-      expandRow,
       openCreateDialog,
       editPromo,
       closeDialog,
@@ -371,8 +513,49 @@ export default {
       openPurchaseDialog,
       closePurchaseDialog,
       savePurchase,
-      deletePurchase
+      deletePurchase,
+      confirmDelete
     }
   }
 }
-</script> 
+</script>
+
+<style>
+.full-width-card {
+  width: 100%;
+  margin: 0;
+  border-radius: 0;
+}
+
+.promo-table {
+  width: 100%;
+  border: none;
+}
+
+.v-data-table {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.v-data-table__wrapper {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.promo-table .v-data-table__wrapper table {
+  table-layout: auto;
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.promo-table .v-data-table__wrapper table td,
+.promo-table .v-data-table__wrapper table th {
+  white-space: normal;
+  word-wrap: break-word;
+  padding: 12px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+</style> 

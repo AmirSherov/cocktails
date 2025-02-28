@@ -1,20 +1,28 @@
 <template>
-  <v-container>
-    <v-card>
-      <v-card-title class="d-flex align-center justify-space-between">
-        <h2>Пользователи</h2>
-        <v-text-field
-          v-model="search"
-          append-icon="mdi-magnify"
-          label="Поиск"
-          single-line
-          hide-details
-          class="mx-4"
-          @input="handleSearch"
-        />
-        <v-btn color="primary" @click="openCreateDialog">
-          Создать пользователя
-        </v-btn>
+  <div class="users-container">
+    <v-card class="users-card">
+      <v-card-title class="users-header">
+        <h2 class="users-title">Пользователи</h2>
+        <div class="search-block">
+          <v-text-field
+            v-model="search"
+            append-icon="mdi-magnify"
+            label="Поиск"
+            single-line
+            hide-details
+            class="search-field"
+            @input="handleSearch"
+            density="compact"
+          />
+          <v-btn 
+            color="primary" 
+            @click="openCreateDialog"
+            prepend-icon="mdi-plus"
+            size="small"
+          >
+            Создать
+          </v-btn>
+        </div>
       </v-card-title>
 
       <v-data-table
@@ -22,37 +30,64 @@
         :items="users"
         :search="search"
         :loading="loading"
+        density="compact"
+        class="users-table"
       >
-        <template v-slot:item.avatar="{ item }">
-          <v-avatar size="40">
-            <v-img :src="item.avatar" alt="avatar" />
+        <template #[`item.avatar`]="{ item }">
+          <v-avatar size="32">
+            <v-img :src="item.avatar || 'https://cdn.vuetifyjs.com/images/john.jpg'" alt="avatar" />
           </v-avatar>
         </template>
 
-        <template v-slot:item.is_active="{ item }">
-          <v-chip :color="item.is_active ? 'success' : 'error'">
+        <template #[`item.is_active`]="{ item }">
+          <v-chip
+            :color="item.is_active ? 'success' : 'error'"
+            size="x-small"
+            class="text-caption"
+          >
             {{ item.is_active ? 'Активный' : 'Неактивный' }}
           </v-chip>
         </template>
 
-        <template v-slot:item.actions="{ item }">
-          <v-btn icon small @click="editUser(item)">
-            <v-icon>mdi-pencil</v-icon>
-          </v-btn>
-          <v-btn icon small @click="deleteUser(item)" color="error">
-            <v-icon>mdi-delete</v-icon>
-          </v-btn>
+        <template #[`item.is_staff`]="{ item }">
+          <v-chip
+            v-if="item.is_staff"
+            color="primary"
+            size="x-small"
+            class="text-caption"
+          >
+            Менеджер
+          </v-chip>
+        </template>
+
+        <template #[`item.actions`]="{ item }">
+          <div class="d-flex">
+            <v-btn
+              icon="mdi-pencil"
+              color="primary"
+              size="x-small"
+              variant="text"
+              class="mr-1"
+              @click="editUser(item)"
+            />
+            <v-btn
+              icon="mdi-delete"
+              color="error"
+              size="x-small"
+              variant="text"
+              @click="deleteUser(item)"
+            />
+          </div>
         </template>
       </v-data-table>
     </v-card>
 
-    <!-- Диалог создания/редактирования пользователя -->
-    <v-dialog v-model="dialog" max-width="600px">
+    <v-dialog v-model="dialog" max-width="700px">
       <v-card>
-        <v-card-title>
+        <v-card-title class="bg-primary text-white pa-4">
           <span>{{ isEditing ? 'Редактировать' : 'Создать' }} пользователя</span>
         </v-card-title>
-        <v-card-text>
+        <v-card-text class="pa-4">
           <v-form ref="form" v-model="valid">
             <v-row>
               <v-col cols="12" sm="6">
@@ -60,6 +95,7 @@
                   v-model="editedItem.first_name"
                   label="Имя"
                   required
+                  density="comfortable"
                 />
               </v-col>
               <v-col cols="12" sm="6">
@@ -67,14 +103,16 @@
                   v-model="editedItem.last_name"
                   label="Фамилия"
                   required
+                  density="comfortable"
                 />
               </v-col>
-              <v-col cols="12">
+              <v-col cols="12" sm="6">
                 <v-text-field
                   v-model="editedItem.email"
                   label="Email"
                   type="email"
                   required
+                  density="comfortable"
                 />
               </v-col>
               <v-col cols="12" sm="6">
@@ -83,28 +121,29 @@
                   label="Пароль"
                   type="password"
                   :required="!isEditing"
+                  density="comfortable"
                 />
               </v-col>
               <v-col cols="12" sm="6">
-                <v-menu>
-                  <template v-slot:activator="{ props }">
-                    <v-text-field
-                      v-model="editedItem.date_of_birthday"
-                      label="Дата рождения"
-                      readonly
-                      v-bind="props"
-                    />
-                  </template>
-                  <v-date-picker
-                    v-model="editedItem.date_of_birthday"
-                  />
-                </v-menu>
+                <v-text-field
+                  v-model="editedItem.date_of_birthday"
+                  label="Дата рождения"
+                  type="date"
+                  density="comfortable"
+                />
               </v-col>
               <v-col cols="12" sm="6">
                 <v-select
                   v-model="editedItem.gender"
-                  :items="['Мужской', 'Женский']"
+                  :items="[
+                    { title: 'Мужской', value: 'Male' },
+                    { title: 'Женский', value: 'Female' },
+                    { title: 'Другой', value: 'other' }
+                  ]"
+                  item-title="title"
+                  item-value="value"
                   label="Пол"
+                  density="comfortable"
                 />
               </v-col>
               <v-col cols="12" sm="6">
@@ -113,36 +152,77 @@
                   :items="['IOS', 'Android']"
                   label="Операционная система"
                   clearable
+                  density="comfortable"
                 />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <div class="file-input-wrapper">
+                  <label for="avatar">Аватар</label>
+                  <input
+                    type="file"
+                    id="avatar"
+                    @change="handleAvatarChange"
+                    class="file-input"
+                  />
+                </div>
               </v-col>
               <v-col cols="12" sm="6">
                 <v-switch
                   v-model="editedItem.is_active"
                   label="Активный"
+                  color="success"
+                  hide-details
                 />
               </v-col>
               <v-col cols="12" sm="6">
                 <v-switch
                   v-model="editedItem.is_staff"
                   label="Менеджер"
+                  color="primary"
+                  hide-details
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-select
+                  v-model="editedItem.user_permissions"
+                  :items="permissions"
+                  item-title="name"
+                  item-value="id"
+                  label="Права доступа"
+                  multiple
+                  chips
+                  density="comfortable"
+                  clearable
                 />
               </v-col>
             </v-row>
           </v-form>
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="pa-4">
           <v-spacer />
-          <v-btn color="error" text @click="closeDialog">Отмена</v-btn>
-          <v-btn color="success" text @click="saveUser">Сохранить</v-btn>
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="closeDialog"
+          >
+            Отмена
+          </v-btn>
+          <v-btn
+            color="primary"
+            @click="saveUser"
+            class="ml-2"
+          >
+            Сохранить
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import axios from '../plugins/axios'
 import { useToast } from 'vue-toastification'
 
 export default {
@@ -155,19 +235,21 @@ export default {
     const isEditing = ref(false)
     const users = ref([])
     const valid = ref(false)
+    const permissions = ref([])
+    const avatarFile = ref(null)
 
     const headers = [
-      { title: 'ID', key: 'id' },
-      { title: 'Аватар', key: 'avatar' },
-      { title: 'Имя', key: 'first_name' },
-      { title: 'Фамилия', key: 'last_name' },
+      { title: 'ID', key: 'id', width: '50px' },
+      { title: 'Аватар', key: 'avatar', width: '60px', sortable: false },
+      { title: 'Имя', key: 'first_name', width: '120px' },
+      { title: 'Фамилия', key: 'last_name', width: '120px' },
       { title: 'Email', key: 'email' },
-      { title: 'Дата рождения', key: 'date_of_birthday' },
-      { title: 'Пол', key: 'gender' },
-      { title: 'ОС', key: 'os' },
-      { title: 'Активный', key: 'is_active' },
-      { title: 'Менеджер', key: 'is_staff' },
-      { title: 'Действия', key: 'actions', sortable: false }
+      { title: 'Дата рождения', key: 'date_of_birthday', width: '120px' },
+      { title: 'Пол', key: 'gender', width: '100px' },
+      { title: 'ОС', key: 'os', width: '100px' },
+      { title: 'Статус', key: 'is_active', width: '100px' },
+      { title: 'Роль', key: 'is_staff', width: '100px' },
+      { title: 'Действия', key: 'actions', width: '100px', sortable: false }
     ]
 
     const editedItem = ref({
@@ -177,10 +259,12 @@ export default {
       email: '',
       password: '',
       date_of_birthday: '',
-      gender: '',
+      gender: 'male',
       os: null,
       is_active: true,
-      is_staff: false
+      is_staff: false,
+      user_permissions: [],
+      avatarFile: null
     })
 
     const defaultItem = {
@@ -190,36 +274,61 @@ export default {
       email: '',
       password: '',
       date_of_birthday: '',
-      gender: '',
+      gender: 'male',
       os: null,
       is_active: true,
-      is_staff: false
+      is_staff: false,
+      user_permissions: [],
+      avatarFile: null
     }
 
     const fetchUsers = async () => {
       loading.value = true
       try {
-        const response = await axios.get('/api/admin/profile/')
-        users.value = response.data
+        const response = await axios.get('/admin/profile/')
+        users.value = Array.isArray(response.data) ? response.data : 
+                     response.data.results ? response.data.results : []
+        console.log(users.value)
       } catch (error) {
+        console.error('Error fetching users:', error)
         toast.error('Ошибка при загрузке пользователей')
+        users.value = []
       }
       loading.value = false
+    }
+
+    const fetchPermissions = async () => {
+      try {
+        const response = await axios.get('/admin/permissions/')
+        permissions.value = Array.isArray(response.data) ? response.data.map(p => ({ ...p, id: Number(p.id) })) :
+                          response.data.results ? response.data.results.map(p => ({ ...p, id: Number(p.id) })) : []
+      } catch (error) {
+        console.error('Error fetching permissions:', error)
+        toast.error('Ошибка при загрузке прав доступа')
+        permissions.value = []
+      }
     }
 
     const handleSearch = async () => {
       if (search.value) {
         loading.value = true
         try {
-          const response = await axios.get(`/api/admin/profile/?search=${search.value}`)
-          users.value = response.data
+          const response = await axios.get(`/admin/profile/?search=${search.value}`)
+          users.value = Array.isArray(response.data) ? response.data :
+                       response.data.results ? response.data.results : []
         } catch (error) {
+          console.error('Error searching:', error)
           toast.error('Ошибка при поиске')
+          users.value = []
         }
         loading.value = false
       } else {
         fetchUsers()
       }
+    }
+
+    const handleAvatarChange = (event) => {
+      avatarFile.value = event.target.files[0]
     }
 
     const openCreateDialog = () => {
@@ -230,38 +339,92 @@ export default {
 
     const editUser = (item) => {
       isEditing.value = true
-      editedItem.value = { ...item }
+      console.log('Initial user data:', item)
+      
+      const itemCopy = { ...item }
+      if (item.user_permissions) {
+        itemCopy.user_permissions = Array.isArray(item.user_permissions) 
+          ? item.user_permissions.map(p => typeof p === 'object' ? p.id : Number(p))
+          : []
+      }
+      editedItem.value = itemCopy
       dialog.value = true
+      
+      axios.get(`/admin/profile/${item.id}/`)
+        .then(response => {
+          console.log('Detailed user data:', response.data)
+          if (response.data.user_permissions) {
+            editedItem.value.user_permissions = response.data.user_permissions
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching user permissions:', error)
+        })
     }
 
     const closeDialog = () => {
       dialog.value = false
       editedItem.value = { ...defaultItem }
+      avatarFile.value = null
     }
 
     const saveUser = async () => {
       try {
-        if (isEditing.value) {
-          await axios.patch(`/api/admin/profile/${editedItem.value.id}/`, editedItem.value)
-          toast.success('Пользователь успешно обновлен')
-        } else {
-          await axios.post('/api/admin/profile/', editedItem.value)
-          toast.success('Пользователь успешно создан')
+        const formData = new FormData()
+        
+        Object.keys(editedItem.value).forEach(key => {
+          if (editedItem.value[key] !== null && key !== 'avatar' && key !== 'avatarFile' && key !== 'user_permissions') {
+            formData.append(key, editedItem.value[key])
+          }
+        })
+
+        if (editedItem.value.user_permissions?.length) {
+          editedItem.value.user_permissions.forEach(permission => {
+            formData.append('user_permissions', Number(permission))
+          })
         }
+
+        if (avatarFile.value) {
+          formData.append('avatar', avatarFile.value)
+        }
+
+        const config = {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+
+        console.log('Sending data:', Object.fromEntries(formData.entries()))
+
+        if (!isEditing.value) {
+          await axios.post('/admin/profile/', formData, config)
+          toast.success('Пользователь успешно создан')
+        } else {
+          await axios.put(`/admin/profile/${editedItem.value.id}/`, formData, config)
+          toast.success('Пользователь успешно обновлен')
+        }
+        
         closeDialog()
         fetchUsers()
       } catch (error) {
-        toast.error('Ошибка при сохранении пользователя')
+        console.error('Error saving user:', error)
+        if (error.response?.data) {
+          console.error('Server response:', error.response.data)
+          toast.error(`Ошибка: ${JSON.stringify(error.response.data)}`)
+        } else {
+          toast.error('Ошибка при сохранении пользователя')
+        }
       }
     }
 
     const deleteUser = async (item) => {
       if (confirm('Вы уверены, что хотите удалить этого пользователя?')) {
         try {
-          await axios.delete(`/api/admin/profile/${item.id}/`)
+          await axios.delete(`/admin/profile/${item.id}/`)
           toast.success('Пользователь успешно удален')
           fetchUsers()
         } catch (error) {
+          console.error('Error deleting user:', error)
           toast.error('Ошибка при удалении пользователя')
         }
       }
@@ -269,6 +432,7 @@ export default {
 
     onMounted(() => {
       fetchUsers()
+      fetchPermissions()
     })
 
     return {
@@ -280,13 +444,100 @@ export default {
       headers,
       editedItem,
       valid,
+      permissions,
+      avatarFile,
       handleSearch,
       openCreateDialog,
       editUser,
       closeDialog,
       saveUser,
-      deleteUser
+      deleteUser,
+      handleAvatarChange
     }
   }
 }
-</script> 
+</script>
+
+<style>
+.users-container {
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  margin-left: -50px;
+}
+
+.users-card {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.users-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.users-title {
+  font-size: 20px;
+  margin: 0;
+}
+
+.search-block {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.search-field {
+  width: 300px;
+}
+
+.v-data-table {
+  font-size: 14px;
+}
+
+.v-data-table .v-data-table-header th {
+  white-space: nowrap;
+  font-weight: 600 !important;
+  background-color: #f5f5f5;
+}
+
+.v-data-table .v-data-table__wrapper {
+  overflow-x: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.v-data-table .v-data-table__wrapper table {
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+.v-data-table .v-data-table__wrapper td {
+  height: 40px !important;
+  padding: 0 8px !important;
+  vertical-align: middle;
+}
+
+.file-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-input-wrapper label {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.file-input {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 100%;
+}
+</style> 
