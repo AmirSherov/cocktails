@@ -8,6 +8,13 @@
       <div class="user-info">
         <div class="text-subtitle-1">ID: {{ ticket.user?.id || 'Н/Д' }}</div>
         <div class="text-subtitle-2">{{ ticket.user?.email || 'Email не указан' }}</div>
+        <v-chip
+          :color="ticket.status === 'open' ? 'success' : 'error'"
+          size="small"
+          class="mt-1"
+        >
+          {{ ticket.status === 'open' ? 'Открыт' : 'Закрыт' }}
+        </v-chip>
       </div>
       <v-spacer></v-spacer>
       <v-btn icon @click="closeChat">
@@ -30,7 +37,7 @@
       </div>
     </v-card-text>
 
-    <v-card-actions class="chat-input">
+    <v-card-actions class="chat-input" v-if="ticket.status === 'open'">
       <v-text-field
         v-model="newMessage"
         placeholder="Введите сообщение..."
@@ -49,6 +56,9 @@
         <v-icon>mdi-send</v-icon>
       </v-btn>
     </v-card-actions>
+    <v-card-text v-else class="text-center text--disabled pa-4">
+      Тикет закрыт. Отправка сообщений недоступна.
+    </v-card-text>
   </v-card>
 </template>
 

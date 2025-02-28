@@ -1,19 +1,19 @@
 <template>
   <v-container fluid class="pa-0">
     <v-card class="full-width-card">
-      <v-card-title class="d-flex align-center justify-space-between">
-        <h5>Промокоды</h5>
-        <div class="d-flex align-center px-10">
+      <v-card-title class="d-flex align-center justify-space-between pa-6">
+        <h4>Промокоды</h4>
+        <div class="d-flex align-center gap-4" style="min-width: 60%;">
           <v-text-field
             v-model="search"
             append-icon="mdi-magnify"
             label="Поиск по названию и описанию"
-            single-line
             hide-details
-            class="mx-20"
+            class="search-field flex-grow-1"
             @input="handleSearch"
+            density="comfortable"
           />
-          <v-btn color="primary" @click="openCreateDialog">
+          <v-btn color="primary" class="ml-4" min-width="140" @click="openCreateDialog">
             Создать промокод
           </v-btn>
         </div>
@@ -27,36 +27,74 @@
         class="promo-table elevation-1"
       >
         <template #[`item.actions`]="{ item }">
-          <v-tooltip bottom>
-            <template #activator="{ on, attrs }">
-              <v-btn
-                icon
-                color="primary"
-                class="mr-2"
-                v-bind="attrs"
-                v-on="on"
-                @click.stop="editPromo(item)"
-              >
-                <v-icon>mdi-pencil</v-icon>
-              </v-btn>
-            </template>
-            <span>Редактировать</span>
-          </v-tooltip>
+          <div class="d-flex align-center">
+            <v-tooltip bottom>
+              <template #activator="{ on, attrs }">
+                <v-btn
+                  icon
+                  color="success"
+                  class="mr-2"
+                  v-bind="attrs"
+                  size="small"
+                  v-on="on"
+                  @click.stop="openPurchaseDialog(item)"
+                >
+                  <v-icon>mdi-plus</v-icon>
+                </v-btn>
+              </template>
+              <span>Добавить пользователю</span>
+            </v-tooltip>
 
-          <v-tooltip bottom>
-            <template #activator="{ on, attrs }">
-              <v-btn
-                icon
-                color="error"
-                v-bind="attrs"
-                v-on="on"
-                @click.stop="deletePromo(item)"
-              >
-                <v-icon>mdi-delete</v-icon>
-              </v-btn>
-            </template>
-            <span>Удалить</span>
-          </v-tooltip>
+            <v-tooltip bottom>
+              <template #activator="{ on, attrs }">
+                <v-btn
+                  icon
+                  color="info"
+                  class="mr-2"
+                  v-bind="attrs"
+                  size="small"
+                  v-on="on"
+                  @click.stop="showHistory(item)"
+                >
+                  <v-icon>mdi-history</v-icon>
+                </v-btn>
+              </template>
+              <span>История</span>
+            </v-tooltip>
+
+            <v-tooltip bottom>
+              <template #activator="{ on, attrs }">
+                <v-btn
+                  icon
+                  color="primary"
+                  class="mr-2"
+                  v-bind="attrs"
+                  size="small"
+                  v-on="on"
+                  @click.stop="editPromo(item)"
+                >
+                  <v-icon>mdi-pencil</v-icon>
+                </v-btn>
+              </template>
+              <span>Редактировать</span>
+            </v-tooltip>
+
+            <v-tooltip bottom>
+              <template #activator="{ on, attrs }">
+                <v-btn
+                  icon
+                  color="error"
+                  v-bind="attrs"
+                  size="small"
+                  v-on="on"
+                  @click.stop="deletePromo(item)"
+                >
+                  <v-icon>mdi-delete</v-icon>
+                </v-btn>
+              </template>
+              <span>Удалить</span>
+            </v-tooltip>
+          </div>
         </template>
 
         <template #expanded-item="{ item }">
@@ -171,34 +209,31 @@
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="purchaseDialog" max-width="500px">
+    <v-dialog v-model="purchaseDialog" max-width="400px">
       <v-card>
-        <v-card-title>Добавить покупку промокода</v-card-title>
+        <v-card-title>Добавить промокод пользователю</v-card-title>
         <v-card-text>
           <v-form ref="purchaseForm" v-model="validPurchase">
             <v-text-field
-              v-model.number="editedPurchase.user"
+              v-model="editedPurchase.user"
               label="ID пользователя"
               type="number"
-              :rules="[
-                v => !!v || 'Обязательное поле',
-                v => v > 0 || 'ID должен быть больше 0'
-              ]"
               required
+              :rules="[v => !!v || 'ID пользователя обязателен']"
             />
           </v-form>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn color="error" text @click="closePurchaseDialog" :disabled="savingPurchase">Отмена</v-btn>
+          <v-btn color="primary" text @click="closePurchaseDialog">Отмена</v-btn>
           <v-btn 
             color="success" 
             text 
-            @click="savePurchase" 
-            :disabled="!validPurchase || savingPurchase"
+            @click="savePurchase"
             :loading="savingPurchase"
+            :disabled="!validPurchase"
           >
-            Сохранить
+            Добавить
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -222,6 +257,46 @@
             Удалить
           </v-btn>
         </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="historyDialog" max-width="800px">
+      <v-card>
+        <v-card-title class="d-flex justify-space-between align-center">
+          <span>История промокода</span>
+          <v-btn icon @click="historyDialog = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-card-text>
+          <v-data-table
+            :headers="historyHeaders"
+            :items="promoHistory"
+            :loading="loadingHistory"
+            class="history-table"
+          >
+            <template #[`item.purchased_at`]="{ item }">
+              {{ formatDate(item.purchased_at) }}
+            </template>
+            <template #[`item.actions`]="{ item }">
+              <v-tooltip bottom>
+                <template #activator="{ on, attrs }">
+                  <v-btn
+                    icon
+                    color="error"
+                    size="small"
+                    v-bind="attrs"
+                    v-on="on"
+                    @click.stop="deletePurchaseFromHistory(item)"
+                  >
+                    <v-icon>mdi-delete</v-icon>
+                  </v-btn>
+                </template>
+                <span>Удалить</span>
+              </v-tooltip>
+            </template>
+          </v-data-table>
+        </v-card-text>
       </v-card>
     </v-dialog>
   </v-container>
@@ -251,10 +326,12 @@ export default {
     const validPurchase = ref(false)
     const form = ref(null)
     const purchaseForm = ref(null)
-    const selectedPromo = ref(null)
     const deleteMessage = ref('')
     const itemToDelete = ref(null)
-    const deleteType = ref('') 
+    const deleteType = ref('')
+    const historyDialog = ref(false)
+    const loadingHistory = ref(false)
+    const promoHistory = ref([])
 
     const headers = [
       { title: 'ID', key: 'id', width: '80px' },
@@ -269,6 +346,13 @@ export default {
 
     const purchaseHeaders = [
       { title: 'ID покупки', key: 'id', width: '100px' },
+      { title: 'ID пользователя', key: 'user', width: '150px' },
+      { title: 'Дата покупки', key: 'purchased_at' },
+      { title: 'Действия', key: 'actions', sortable: false, width: '100px' }
+    ]
+
+    const historyHeaders = [
+      { title: 'ID', key: 'id', width: '100px' },
       { title: 'ID пользователя', key: 'user', width: '150px' },
       { title: 'Дата покупки', key: 'purchased_at' },
       { title: 'Действия', key: 'actions', sortable: false, width: '100px' }
@@ -311,6 +395,7 @@ export default {
       loading.value = true
       try {
         const response = await axios.get('/admin/promo/')
+        console.log('Promo response:', response.data)
         promos.value = Array.isArray(response.data) ? response.data : 
                       response.data.results ? response.data.results : []
       } catch (error) {
@@ -410,17 +495,18 @@ export default {
       deleteDialog.value = true
     }
 
-    const openPurchaseDialog = (promo) => {
-      selectedPromo.value = promo
-      editedPurchase.value = { ...defaultPurchase, promo: promo.id }
+    const openPurchaseDialog = (item) => {
+      editedPurchase.value = {
+        user: null,
+        promo: item.id
+      }
       purchaseDialog.value = true
     }
 
     const closePurchaseDialog = () => {
       purchaseDialog.value = false
       editedPurchase.value = { ...defaultPurchase }
-      selectedPromo.value = null
-      purchaseForm.value?.resetValidation()
+      purchaseForm.value?.reset()
     }
 
     const savePurchase = async () => {
@@ -429,15 +515,12 @@ export default {
       savingPurchase.value = true
       try {
         await axios.post('/admin/promo/purchased/', editedPurchase.value)
-        toast.success('Покупка успешно создана')
+        toast.success('Промокод успешно добавлен пользователю')
         closePurchaseDialog()
-        if (selectedPromo.value) {
-          handlePurchaseSearch(selectedPromo.value.id)
-        }
         fetchPromos() // Обновляем список для обновления счетчика покупок
       } catch (error) {
-        console.error('Error creating purchase:', error)
-        const errorMessage = error.response?.data?.detail || 'Ошибка при создании покупки'
+        console.error('Error adding promo to user:', error)
+        const errorMessage = error.response?.data?.detail || 'Ошибка при добавлении промокода пользователю'
         toast.error(errorMessage)
       } finally {
         savingPurchase.value = false
@@ -474,6 +557,38 @@ export default {
       } finally {
         deleteDialog.value = false
         deleting.value = false
+      }
+    }
+
+    const showHistory = async (item) => {
+      historyDialog.value = true
+      loadingHistory.value = true
+      try {
+        const response = await axios.get(`/admin/promo/purchased/?promo=${item.id}`)
+        promoHistory.value = Array.isArray(response.data) ? response.data : 
+                            response.data.results ? response.data.results : []
+      } catch (error) {
+        console.error('Error loading promo history:', error)
+        toast.error('Ошибка при загрузке истории промокода')
+        promoHistory.value = []
+      } finally {
+        loadingHistory.value = false
+      }
+    }
+
+    const deletePurchaseFromHistory = async (item) => {
+      try {
+        await axios.delete(`/admin/promo/purchased/${item.id}/`)
+        toast.success('Покупка успешно удалена')
+        // Обновляем список истории
+        const currentPromo = promos.value.find(p => p.purchases?.some(pur => pur.id === item.id))
+        if (currentPromo) {
+          showHistory(currentPromo)
+          fetchPromos() // Обновляем список для обновления счетчика покупок
+        }
+      } catch (error) {
+        console.error('Error deleting purchase:', error)
+        toast.error('Ошибка при удалении покупки')
       }
     }
 
@@ -514,7 +629,13 @@ export default {
       closePurchaseDialog,
       savePurchase,
       deletePurchase,
-      confirmDelete
+      confirmDelete,
+      historyDialog,
+      loadingHistory,
+      promoHistory,
+      historyHeaders,
+      showHistory,
+      deletePurchaseFromHistory
     }
   }
 }
@@ -557,5 +678,13 @@ export default {
   word-wrap: break-word;
   padding: 12px 16px;
   border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.search-field {
+  min-width: 300px;
+}
+
+.gap-4 {
+  gap: 16px;
 }
 </style> 

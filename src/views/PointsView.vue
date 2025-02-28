@@ -22,7 +22,6 @@
       </v-tabs>
 
       <v-card-text>
-        <!-- Таблица конфигурации начисления баллов -->
         <v-data-table
           v-if="activeTab === 0"
           :headers="configHeaders"
@@ -30,13 +29,11 @@
           :loading="loadingConfig"
         >
           <template v-slot:item.actions="{ item }">
-            <v-btn icon small @click="editConfig(item)">
+            <v-btn size="34" icon x-small @click="editConfig(item)">
               <v-icon>mdi-pencil</v-icon>
             </v-btn>
           </template>
         </v-data-table>
-
-        <!-- Таблица пользователей с баллами -->
         <v-data-table
           v-else
           :headers="headers"
@@ -48,14 +45,16 @@
             <v-tooltip bottom>
               <template v-slot:activator="{ on, attrs }">
                 <v-btn
+                  density="compact"
+                  size="24"
                   icon
                   color="primary"
-                  class="mr-2"
+                  class="mr-1"
                   v-bind="attrs"
                   v-on="on"
                   @click="showHistory(item)"
                 >
-                  <v-icon>mdi-history</v-icon>
+                  <v-icon size="16">mdi-history</v-icon>
                 </v-btn>
               </template>
               <span>История операций</span>
@@ -64,13 +63,15 @@
             <v-tooltip bottom>
               <template v-slot:activator="{ on, attrs }">
                 <v-btn
+                  density="compact"
+                  size="24"
                   icon
                   color="success"
                   v-bind="attrs"
                   v-on="on"
                   @click="openPointDialog(item)"
                 >
-                  <v-icon>mdi-plus-circle</v-icon>
+                  <v-icon size="16">mdi-plus-circle</v-icon>
                 </v-btn>
               </template>
               <span>Добавить операцию</span>
@@ -79,8 +80,6 @@
         </v-data-table>
       </v-card-text>
     </v-card>
-
-    <!-- Диалог редактирования конфигурации -->
     <v-dialog v-model="configDialog" max-width="500px">
       <v-card>
         <v-card-title>Редактировать начисление баллов</v-card-title>
@@ -108,8 +107,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
-    <!-- Диалог добавления операции -->
     <v-dialog v-model="pointDialog" max-width="500px">
       <v-card>
         <v-card-title>Добавить операцию</v-card-title>
@@ -145,7 +142,6 @@
       </v-card>
     </v-dialog>
 
-    <!-- Диалог истории операций -->
     <v-dialog v-model="historyDialog" max-width="900px">
       <v-card>
         <v-card-title class="d-flex justify-space-between">

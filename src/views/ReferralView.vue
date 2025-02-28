@@ -1,17 +1,19 @@
 <template>
   <v-container fluid class="pa-10">
     <v-card class="full-width-card">
-      <v-card-title class="d-flex align-center justify-space-between">
+      <v-card-title class="d-flex align-center justify-space-between pa-6">
         <h4>Реферальная система</h4>
-        <div class="d-flex align-center">
+        <div class="d-flex align-center gap-4" style="min-width: 60%;">
           <v-text-field
             v-model="search"
             append-icon="mdi-magnify"
             label="Поиск"
             hide-details
+            class="search-field flex-grow-1"
             @input="handleSearch"
+            density="comfortable"
           />
-          <v-btn color="primary" @click="openCreateDialog">
+          <v-btn color="primary" class="ml-4" min-width="140">
             Создать код
           </v-btn>
         </div>
@@ -24,22 +26,24 @@
         :loading="loading"
         class="referral-table elevation-1"
       >
-        <template v-slot:item.user="{ item }">
+        <template #[`item.user`]="{ item }">
           <v-btn
             text
-            small
             color="primary"
-            :to="{ name: 'users', query: { user: item.user }}"
+            variant="text"
+            :to="{ name: 'users', query: { search: item.user }}"
+            class="pa-0"
           >
             {{ item.user }}
           </v-btn>
         </template>
 
-        <template v-slot:item.actions="{ item }">
+        <template #[`item.actions`]="{ item }">
           <v-tooltip bottom>
-            <template v-slot:activator="{ on, attrs }">
+            <template #activator="{ on, attrs }">
               <v-btn
                 icon
+                size="24"
                 color="primary"
                 class="mr-2"
                 v-bind="attrs"
@@ -53,9 +57,10 @@
           </v-tooltip>
 
           <v-tooltip bottom>
-            <template v-slot:activator="{ on, attrs }">
+            <template #activator="{ on, attrs }">
               <v-btn
                 icon
+                size="24"
                 color="error"
                 v-bind="attrs"
                 v-on="on"
@@ -361,5 +366,13 @@ export default {
 
 .v-data-table__wrapper {
   padding: 0 24px !important;
+}
+
+.search-field {
+  min-width: 300px;
+}
+
+.gap-4 {
+  gap: 16px;
 }
 </style> 

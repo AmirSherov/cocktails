@@ -1,19 +1,19 @@
 <template>
   <v-container>
     <v-card>
-      <v-card-title class="d-flex align-center justify-space-between">
-        <h2>Рассылки</h2>
-        <div class="d-flex align-center">
+      <v-card-title class="d-flex align-center justify-space-between pa-6">
+        <h4>Рассылки</h4>
+        <div class="d-flex align-center gap-4" style="min-width: 60%;">
           <v-text-field
             v-model="search"
             append-icon="mdi-magnify"
             label="Поиск по заголовку и описанию"
-            single-line
             hide-details
-            class="mx-4"
+            class="search-field flex-grow-1"
             @input="handleSearch"
+            density="comfortable"
           />
-          <v-btn color="primary" @click="openCreateDialog">
+          <v-btn color="primary" min-width="140" @click="openCreateDialog">
             Создать рассылку
           </v-btn>
         </div>
@@ -52,6 +52,7 @@
                 small 
                 color="primary"
                 v-bind="attrs"
+                size="30"
                 v-on="on"
                 @click="editMailing(item)"
                 class="mr-2"
@@ -70,6 +71,7 @@
                 small 
                 color="error"
                 v-bind="attrs"
+                size="30"
                 v-on="on"
                 @click="deleteMailing(item)"
                 :loading="loading"
@@ -82,8 +84,6 @@
         </template>
       </v-data-table>
     </v-card>
-
-    <!-- Диалог создания/редактирования рассылки -->
     <v-dialog v-model="dialog" max-width="600px">
       <v-card>
         <v-card-title>
@@ -146,8 +146,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
-    <!-- Диалог подтверждения удаления -->
     <v-dialog v-model="deleteDialog" max-width="400px">
       <v-card>
         <v-card-title>Подтверждение удаления</v-card-title>
@@ -381,5 +379,13 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.search-field {
+  min-width: 300px;
+}
+
+.gap-4 {
+  gap: 16px;
 }
 </style> 

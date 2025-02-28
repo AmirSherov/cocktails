@@ -1,19 +1,19 @@
 <template>
   <v-container>
     <v-card>
-      <v-card-title class="d-flex align-center justify-space-between">
-        <h2>Реклама</h2>
-        <div class="d-flex align-center">
+      <v-card-title class="d-flex align-center justify-space-between pa-6">
+        <h4>Реклама</h4>
+        <div class="d-flex align-center gap-4" style="min-width: 60%;">
           <v-text-field
             v-model="search"
             append-icon="mdi-magnify"
             label="Поиск по заголовку и описанию"
-            single-line
             hide-details
-            class="mx-4"
+            class="search-field flex-grow-1"
             @input="handleSearch"
+            density="comfortable"
           />
-          <v-btn color="primary" @click="openCreateDialog">
+          <v-btn color="primary" class="ml-4" min-width="140" @click="openCreateDialog">
             Создать рекламу
           </v-btn>
         </div>
@@ -54,6 +54,7 @@
                 small 
                 color="primary"
                 v-bind="attrs"
+                size="30"
                 v-on="on"
                 @click="editAd(item)"
                 class="mr-2"
@@ -70,7 +71,8 @@
                 icon 
                 small 
                 color="error"
-                v-bind="attrs"
+                  v-bind="attrs"
+                size="30"
                 v-on="on"
                 @click="deleteAd(item)"
               >
@@ -499,5 +501,13 @@ export default {
   width: 100%;
   padding: 8px;
   margin-top: 4px;
+}
+
+.search-field {
+  min-width: 300px;
+}
+
+.gap-4 {
+  gap: 16px;
 }
 </style> 

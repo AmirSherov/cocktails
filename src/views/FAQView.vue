@@ -1,19 +1,19 @@
 <template>
   <div class="faq-wrapper">
     <v-card flat class="full-width-card">
-      <v-card-title class="d-flex align-center justify-space-between px-4">
-        <h2>FAQ</h2>
-        <div class="d-flex align-center">
+      <v-card-title class="d-flex align-center justify-space-between pa-6">
+        <h4>FAQ</h4>
+        <div class="d-flex align-center gap-4" style="min-width: 60%;">
           <v-text-field
             v-model="search"
             append-icon="mdi-magnify"
             label="Поиск"
-            single-line
             hide-details
-            class="mx-4"
+            class="search-field flex-grow-1"
             @input="handleSearch"
+            density="comfortable"
           />
-          <v-btn color="primary" @click="openCreateDialog">
+          <v-btn color="primary" min-width="140" @click="openCreateDialog">
             Создать FAQ
           </v-btn>
         </div>
@@ -27,13 +27,14 @@
         class="faq-table elevation-1"
         :items-per-page="10"
       >
-        <template v-slot:item.actions="{ item }">
+        <template #item.actions="{ item }">
           <v-tooltip bottom>
-            <template v-slot:activator="{ on, attrs }">
+            <template #activator="{ on, attrs }">
               <v-btn
                 icon
                 color="primary"
                 class="mr-2"
+                size="30"
                 v-bind="attrs"
                 v-on="on"
                 @click="editFaq(item)"
@@ -45,11 +46,12 @@
           </v-tooltip>
 
           <v-tooltip bottom>
-            <template v-slot:activator="{ on, attrs }">
+            <template #activator="{ on, attrs }">
               <v-btn
                 icon
                 color="error"
                 v-bind="attrs"
+                size="30"
                 v-on="on"
                 @click="deleteFaq(item)"
               >
@@ -323,5 +325,13 @@ export default {
 .faq-table .v-data-table__wrapper table th:nth-child(4),
 .faq-table .v-data-table__wrapper table td:nth-child(4) {
   width: 120px;  /* Действия */
+}
+
+.search-field {
+  min-width: 300px;
+}
+
+.gap-4 {
+  gap: 16px;
 }
 </style> 

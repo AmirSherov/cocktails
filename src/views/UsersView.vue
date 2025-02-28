@@ -34,8 +34,8 @@
         class="users-table"
       >
         <template #[`item.avatar`]="{ item }">
-          <v-avatar size="32">
-            <v-img :src="item.avatar || 'https://cdn.vuetifyjs.com/images/john.jpg'" alt="avatar" />
+          <v-avatar size="32" style="cursor: pointer" @click="showAvatarPreview(item)">
+            <v-img :src="item.avatar || 'https://static.vecteezy.com/system/resources/previews/009/292/244/non_2x/default-avatar-icon-of-social-media-user-vector.jpg'" alt="avatar" />
           </v-avatar>
         </template>
 
@@ -217,6 +217,24 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Диалог для предпросмотра аватара -->
+    <v-dialog v-model="avatarPreviewDialog" max-width="500px">
+      <v-card>
+        <v-card-title class="d-flex justify-space-between align-center pa-4">
+          <span>Аватар пользователя</span>
+          <v-btn icon="mdi-close" size="small" @click="avatarPreviewDialog = false" />
+        </v-card-title>
+        <v-card-text class="pa-0">
+          <v-img
+            :src="selectedAvatar || 'https://static.vecteezy.com/system/resources/previews/009/292/244/non_2x/default-avatar-icon-of-social-media-user-vector.jpg'"
+            max-height="500"
+            contain
+            class="mx-auto"
+          />
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -224,10 +242,12 @@
 import { ref, onMounted } from 'vue'
 import axios from '../plugins/axios'
 import { useToast } from 'vue-toastification'
+import { useRoute } from 'vue-router'
 
 export default {
   name: 'UsersView',
   setup() {
+    const route = useRoute()
     const toast = useToast()
     const search = ref('')
     const loading = ref(false)
@@ -237,6 +257,8 @@ export default {
     const valid = ref(false)
     const permissions = ref([])
     const avatarFile = ref(null)
+    const avatarPreviewDialog = ref(false)
+    const selectedAvatar = ref(null)
 
     const headers = [
       { title: 'ID', key: 'id', width: '50px' },
@@ -430,8 +452,18 @@ export default {
       }
     }
 
+    const showAvatarPreview = (item) => {
+      selectedAvatar.value = item.avatar
+      avatarPreviewDialog.value = true
+    }
+
     onMounted(() => {
-      fetchUsers()
+      if (route.query.search) {
+        search.value = route.query.search
+        handleSearch()
+      } else {
+        fetchUsers()
+      }
       fetchPermissions()
     })
 
@@ -446,13 +478,16 @@ export default {
       valid,
       permissions,
       avatarFile,
+      avatarPreviewDialog,
+      selectedAvatar,
       handleSearch,
       openCreateDialog,
       editUser,
       closeDialog,
       saveUser,
       deleteUser,
-      handleAvatarChange
+      handleAvatarChange,
+      showAvatarPreview
     }
   }
 }

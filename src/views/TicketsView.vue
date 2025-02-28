@@ -163,7 +163,7 @@ export default {
 
     const handleRowClick = (item) => {
       console.log('Clicked ticket:', item)
-      if (item && item.status === 'open') {
+      if (item) {
         console.log('Opening chat for ticket:', item)
         selectedTicket.value = {
           id: item.id,
