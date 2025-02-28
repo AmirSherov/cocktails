@@ -70,8 +70,13 @@ const router = createRouter({
     {
       path: '/tickets',
       name: 'tickets',
-      component: TicketsView,
+      component: () => import('../views/TicketsView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/statistics',
+      name: 'statistics',
+      component: () => import('../views/StatisticsView.vue')
     }
   ]
 })
@@ -79,16 +84,12 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   const isAuthenticated = authStore.isAuthenticated
-
-  // Если маршрут требует авторизации и пользователь не авторизован
   if (to.meta.requiresAuth && !isAuthenticated) {
     next('/login')
   }
-  // Если пользователь авторизован и пытается зайти на страницу логина
   else if (to.path === '/login' && isAuthenticated) {
     next('/users')
   }
-  // В остальных случаях разрешаем переход
   else {
     next()
   }

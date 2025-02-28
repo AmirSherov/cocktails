@@ -21,8 +21,10 @@ export const useAuthStore = defineStore('auth', {
         
         if (response.data && response.data.token) {
           const token = response.data.token
+          const id = response.data.user.id
           this.token = token
           localStorage.setItem('token', token)
+          localStorage.setItem('userId', id)
           return true
         }
         return false

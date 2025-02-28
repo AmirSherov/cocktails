@@ -2,23 +2,22 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
-import { useToast } from 'vue-toastification'
 export default {
   name: 'App',
   setup() {
     const router = useRouter()
     const authStore = useAuthStore()
-    const toast = useToast()
     const drawer = ref(true)
     const menuItems = [
       { title: 'Пользователи', path: '/users', icon: 'mdi-account-group' },
       { title: 'Баллы', path: '/points', icon: 'mdi-star' },
       { title: 'Реферальная система', path: '/referral', icon: 'mdi-account-multiple' },
       { title: 'Промокоды', path: '/promo', icon: 'mdi-ticket-percent' },
-      { title: 'Реклама', path: '/ads', icon: 'mdi-advertisement' },
+      { title: 'Реклама', path: '/ads', icon: 'mdi-bullhorn' },
       { title: 'Рассылки', path: '/mailing', icon: 'mdi-email' },
       { title: 'FAQ', path: '/faq', icon: 'mdi-frequently-asked-questions' },
-      { title: 'Тикеты', path: '/tickets', icon: 'mdi-ticket-account' }
+      { title: 'Тикеты', path: '/tickets', icon: 'mdi-ticket-account' },
+      { title: 'Статистика', path: '/statistics', icon: 'mdi-chart-box' }
     ]
 
     const handleLogout = async () => {
@@ -41,38 +40,62 @@ export default {
       v-model="drawer"
       app
       permanent
-      color="grey-lighten-4"
-      class="elevation-1"
+      color="white"
+      class="elevation-1 sidebar"
     >
-      <v-list>
+        <div class="text-h6 font-weight-bold primary--text">Админ-панель</div>
+
+      <v-list class="pa-2">
         <v-list-item
           v-for="item in menuItems"
           :key="item.title"
           :to="item.path"
           link
+          rounded="lg"
+          class="mb-1"
         >
-          <v-list-item-icon>
-            <v-icon>{{ item.icon }}</v-icon>
-          </v-list-item-icon>
-          <v-list-item-content>
-            <v-list-item-title>{{ item.title }}</v-list-item-title>
-          </v-list-item-content>
+          <template v-slot:prepend>
+            <v-icon
+              :color="$route.path.startsWith(item.path) ? 'white' : 'primary'"
+              class="menu-icon"
+            >
+              {{ item.icon }}
+            </v-icon>
+          </template>
+          <v-list-item-title 
+            class="menu-title"
+            :class="{ 'font-weight-bold': $route.path.startsWith(item.path) }"
+          >
+            {{ item.title }}
+          </v-list-item-title>
         </v-list-item>
       </v-list>
+
+      <template v-slot:append>
+        <div class="pa-2">
+          <v-btn
+            block
+            color="error"
+            variant="tonal"
+            @click="logout"
+            class="logout-btn"
+          >
+            <v-icon start>mdi-logout</v-icon>
+            Выйти
+          </v-btn>
+        </div>
+      </template>
     </v-navigation-drawer>
 
     <v-app-bar
       v-if="authStore.isAuthenticated"
       app
-      color="primary"
-      dark
+      color="white"
+      elevation="1"
     >
-      <v-app-bar-nav-icon @click="drawer = !drawer" />
-      <v-toolbar-title>Админ-панель</v-toolbar-title>
+      <v-app-bar-nav-icon @click="drawer = !drawer" color="primary" />
+      <v-toolbar-title class="text-primary font-weight-bold">Админ-панель</v-toolbar-title>
       <v-spacer />
-      <v-btn icon @click="logout">
-        <v-icon>mdi-logout</v-icon>
-      </v-btn>
     </v-app-bar>
 
     <v-main>
@@ -83,38 +106,71 @@ export default {
 
 <style>
 body {
-  background-color: rgb(var(--v-theme-background));
+  background-color: #f5f7fa;
+}
+
+.sidebar {
+  border-right: none !important;
+}
+
+.sidebar-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .v-navigation-drawer {
-  padding: 12px;
-  width: 300px !important;
+  padding: 0;
+  width: 260px !important;
 }
 
 .v-list-item {
   margin-bottom: 4px;
+  transition: all 0.3s ease;
+  border-radius: 8px;
 }
 
 .v-list-item--active {
-  background-color: rgb(var(--v-theme-primary));
+  background: linear-gradient(118deg, var(--v-primary-base), var(--v-primary-darken1));
   color: white;
+  transform: scale(1.02);
 }
 
-.v-list-item:hover {
-  background-color: rgb(var(--v-theme-primary), 0.1);
+.v-list-item--active .v-icon {
+  color: white !important;
+}
+
+.v-list-item:hover:not(.v-list-item--active) {
+  background-color: rgba(var(--v-theme-primary), 0.05);
+  transform: translateX(4px);
+}
+
+.menu-icon {
+  transition: all 0.3s ease;
+}
+
+.menu-title {
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.v-list-item--active .menu-title {
+  letter-spacing: 0.4px;
+}
+
+.logout-btn {
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  transform: translateY(-2px);
 }
 
 .v-main {
-  background-color: rgb(var(--v-theme-background));
+  background-color: #f5f7fa;
 }
 
 .v-container {
   max-width: 1400px;
   margin-top: 16px;
-}
-
-.v-application {
-  background-color: #f5f5f5 !important;
 }
 
 .auth-page {

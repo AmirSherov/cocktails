@@ -40,8 +40,8 @@
         <template v-slot:[`item.target_audience`]="{ item }">
           <v-chip :color="getTargetColor(item.target_audience)">
             {{ item.target_audience === 'ALL' ? 'Все' :
-               item.target_audience === 'MALE' ? 'Мужчина' :
-               item.target_audience === 'FEMALE' ? 'Женщина' :
+               item.target_audience === 'MEN' ? 'Мужчина' :
+               item.target_audience === 'WOMEN' ? 'Женщина' :
                item.target_audience }}
           </v-chip>
         </template>
@@ -122,8 +122,8 @@
               v-model="editedItem.target_audience"
               :items="[
                 { title: 'Все', value: 'ALL' },
-                { title: 'Мужчина', value: 'MALE' },
-                { title: 'Женщина', value: 'FEMALE' }
+                { title: 'Мужчина', value: 'MEN' },
+                { title: 'Женщина', value: 'WOMEN' }
               ]"
               item-title="title"
               item-value="value"
@@ -238,11 +238,11 @@ export default {
 
     const targetDisplayMap = {
       'ALL': 'Все',
-      'MALE': 'Мужчина',
-      'FEMALE': 'Женщина'
+      'MEN': 'Мужчина',
+      'WOMEN': 'Женщина'
     }
 
-    const targetOptions = ['ALL', 'MALE', 'FEMALE']
+    const targetOptions = ['ALL', 'MEN', 'WOMEN']
 
     const editedItem = ref({
       id: null,
@@ -266,9 +266,9 @@ export default {
       switch (target) {
         case 'ALL':
           return 'primary'
-        case 'MALE':
+        case 'MEN':
           return 'blue'
-        case 'FEMALE':
+        case 'WOMEN':
           return 'pink'
         default:
           return 'grey'

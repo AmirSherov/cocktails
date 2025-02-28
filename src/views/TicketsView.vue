@@ -25,28 +25,51 @@
         :search="search"
         :custom-filter="customFilter"
         :loading="loading"
+        class="cursor-pointer"
       >
-        <template v-slot:[`item.status`]="{ item }">
-          <v-chip
-            :color="item.status === 'open' ? 'success' : 'error'"
-            text-color="white"
-            small
-          >
-            {{ item.status }}
-          </v-chip>
-        </template>
-        <template v-slot:[`item.actions`]="{ item }">
-          <v-btn 
-            v-if="item.status === 'open'"
-            color="primary" 
-            small 
-            @click="closeTicket(item)"
-          >
-            Закрыть тикет
-          </v-btn>
+        <template v-slot:item="{ item }">
+          <tr @click="handleRowClick(item)">
+            <td>{{ item.id }}</td>
+            <td>{{ item.subject }}</td>
+            <td>{{ item.description }}</td>
+            <td>
+              <v-chip
+                :color="item.status === 'open' ? 'success' : 'error'"
+                text-color="white"
+                small
+              >
+                {{ item.status }}
+              </v-chip>
+            </td>
+            <td>{{ item.user?.email }}</td>
+            <td>{{ item.user?.phone }}</td>
+            <td>{{ item.created_at }}</td>
+            <td>
+              <v-btn 
+                v-if="item.status === 'open'"
+                color="primary" 
+                small 
+                @click.stop="closeTicket(item)"
+              >
+                Закрыть тикет
+              </v-btn>
+            </td>
+          </tr>
         </template>
       </v-data-table>
     </v-card>
+
+    <v-dialog
+      v-model="chatDialog"
+      max-width="600px"
+      persistent
+    >
+      <ticket-chat
+        v-if="selectedTicket"
+        :ticket="selectedTicket"
+        @close="chatDialog = false"
+      />
+    </v-dialog>
   </v-container>
 </template>
 
@@ -54,15 +77,21 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from '@/plugins/axios'
 import { useToast } from 'vue-toastification'
+import TicketChat from '@/components/TicketChat.vue'
 
 export default {
   name: 'TicketsView',
+  components: {
+    TicketChat
+  },
   setup() {
     const toast = useToast()
     const search = ref('')
     const loading = ref(false)
     const activeTab = ref(0)
     const tickets = ref([])
+    const chatDialog = ref(false)
+    const selectedTicket = ref(null)
 
     const headers = [
       { title: 'ID', key: 'id' },
@@ -90,8 +119,12 @@ export default {
         tickets.value = tickets.value.map(ticket => ({
           ...ticket,
           created_at: new Date(ticket.created_at).toLocaleString('ru-RU'),
-          'user.email': ticket.user?.email || '',
-          'user.phone': ticket.user?.phone || ''
+          user: {
+            ...ticket.user,
+            email: ticket.user?.email || '',
+            phone: ticket.user?.phone || '',
+            id: ticket.user?.id
+          }
         }))
       } catch (error) {
         console.error('Error loading tickets:', error)
@@ -110,8 +143,12 @@ export default {
           tickets.value = tickets.value.map(ticket => ({
             ...ticket,
             created_at: new Date(ticket.created_at).toLocaleString('ru-RU'),
-            'user.email': ticket.user?.email || '',
-            'user.phone': ticket.user?.phone || ''
+            user: {
+              ...ticket.user,
+              email: ticket.user?.email || '',
+              phone: ticket.user?.phone || '',
+              id: ticket.user?.id
+            }
           }))
         } catch (error) {
           console.error('Error searching tickets:', error)
@@ -121,6 +158,28 @@ export default {
         loading.value = false
       } else {
         fetchTickets()
+      }
+    }
+
+    const handleRowClick = (item) => {
+      console.log('Clicked ticket:', item)
+      if (item && item.status === 'open') {
+        console.log('Opening chat for ticket:', item)
+        selectedTicket.value = {
+          id: item.id,
+          status: item.status,
+          subject: item.subject,
+          description: item.description,
+          user: {
+            id: item.user?.id,
+            email: item.user?.email,
+            phone: item.user?.phone,
+            avatar: item.user?.avatar
+          }
+        }
+        chatDialog.value = true
+        console.log('Dialog should be open:', chatDialog.value)
+        console.log('Selected ticket:', selectedTicket.value)
       }
     }
 
@@ -158,8 +217,17 @@ export default {
       filteredTickets,
       handleSearch,
       closeTicket,
-      customFilter
+      customFilter,
+      chatDialog,
+      selectedTicket,
+      handleRowClick
     }
   }
 }
-</script> 
+</script>
+
+<style scoped>
+.cursor-pointer >>> tbody tr {
+  cursor: pointer;
+}
+</style> 
