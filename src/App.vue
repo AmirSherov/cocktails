@@ -38,12 +38,8 @@ export default {
 <template>
   <v-app>
     <v-navigation-drawer
-      v-if="authStore.isAuthenticated"
       v-model="drawer"
-      app
       permanent
-      color="white"
-      class="elevation-1 sidebar"
     >
         <div class="text-h6 font-weight-bold primary--text">Админ-панель</div>
 
@@ -95,7 +91,6 @@ export default {
       color="white"
       elevation="1"
     >
-      <v-app-bar-nav-icon @click="drawer = !drawer" color="primary" />
       <v-toolbar-title class="text-primary font-weight-bold">Админ-панель</v-toolbar-title>
       <v-spacer />
     </v-app-bar>

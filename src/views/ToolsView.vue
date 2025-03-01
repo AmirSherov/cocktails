@@ -181,11 +181,13 @@
           />
         </el-form-item>
         <el-form-item label="Ссылки">
-          <div v-for="(link, index) in form.links" :key="index" class="link-item">
-            <el-input v-model="form.links[index]" />
-            <el-button type="danger" @click="removeLink(index)">Удалить</el-button>
+          <div class="links-container">
+            <div v-for="(link, index) in form.links" :key="index" class="link-item">
+              <el-input v-model="form.links[index]" />
+              <el-button type="danger" @click="removeLink(index)">Удалить</el-button>
+            </div>
+            <el-button type="primary" class="add-link-button" @click="addLink">Добавить ссылку</el-button>
           </div>
-          <el-button type="primary" @click="addLink">Добавить ссылку</el-button>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -304,7 +306,10 @@ export default {
 
     const handleEdit = (row) => {
       isEdit.value = true
-      form.value = { ...row }
+      form.value = { 
+        ...row,
+        links: Array.isArray(row.links) ? [...row.links] : []
+      }
       if (row.photo) {
         imagePreview.value = row.photo
       } else {
@@ -406,6 +411,10 @@ export default {
       previewImageClass: 'preview-image',
       imageErrorClass: 'image-error',
       getImageUrl,
+      linkItemClass: 'link-item',
+      elFormItemContentClass: 'el-form-item__content',
+      linksContainerClass: 'links-container',
+      addLinkButtonClass: 'add-link-button',
     }
   }
 }
@@ -459,10 +468,26 @@ export default {
   object-fit: cover;
 }
 
+.links-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
 .link-item {
   display: flex;
   gap: 10px;
-  margin-bottom: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.link-item .el-input {
+  flex: 1;
+}
+
+.add-link-button {
+  align-self: flex-start;
 }
 
 .file-input {

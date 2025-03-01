@@ -8,12 +8,13 @@
         style="width: 100%"
         v-loading="loadingSections"
         row-key="id"
-        :default-sort="{ prop: 'id', order: 'ascending' }"
+        @row-click="handleCategorySectionClick"
       >
         <el-table-column
           prop="id"
           label="ID"
           width="80"
+          sortable
         />
         <el-table-column
           prop="name"
@@ -33,22 +34,9 @@
           label="Категории"
         >
           <template #default="{ row }">
-            <el-select
-              v-model="row.categories"
-              multiple
-              filterable
-              remote
-              :remote-method="searchCategories"
-              placeholder="Выберите категории"
-              @change="(value) => handleCategoriesChange(row, value)"
-            >
-              <el-option
-                v-for="item in availableCategories"
-                :key="item.id"
-                :label="item.name"
-                :value="item.id"
-              />
-            </el-select>
+            <div class="categories-count">
+              {{ row.categories?.length || 0 }} категорий
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -205,11 +193,18 @@
           show-overflow-tooltip
         />
         <el-table-column
+          prop="category"
+          label="ID категории"
+          width="120"
+          sortable
+        />
+        <el-table-column
           prop="category_name"
           label="Категория"
           sortable
         >
           <template #default="{ row }">
+            {{ row.category_name }}
             <el-select
               v-model="row.category"
               filterable
@@ -362,6 +357,67 @@
         </span>
       </template>
     </el-dialog>
+    <el-dialog
+      title="Управление категориями блока"
+      v-model="categorySectionDialogVisible"
+      width="60%"
+    >
+      <div v-if="selectedCategorySection">
+        <div class="section-info">
+          <h3>{{ selectedCategorySection.name }}</h3>
+          <p>ID: {{ selectedCategorySection.id }}, Язык: {{ selectedCategorySection.language === 'ENG' ? 'English' : 'Русский' }}</p>
+        </div>
+        
+        <div class="categories-management">
+          <div class="add-category-section">
+            <h4>Добавить категорию</h4>
+            <div class="add-category-controls">
+              <el-select
+                v-model="categoryToAdd"
+                filterable
+                remote
+                :remote-method="searchCategories"
+                placeholder="Выберите категорию"
+                style="width: 100%;"
+              >
+                <el-option
+                  v-for="item in availableCategoriesToAdd"
+                  :key="item.id"
+                  :label="item.name + ' (ID: ' + item.id + ')'"
+                  :value="item.id"
+                />
+              </el-select>
+              <el-button 
+                type="primary" 
+                icon="el-icon-plus" 
+                @click="addCategoryToSection"
+                :disabled="!categoryToAdd"
+              >
+                Добавить
+              </el-button>
+            </div>
+          </div>
+          
+          <div class="current-categories-section">
+            <h4>Текущие категории</h4>
+            <div v-if="!selectedCategorySection.categories?.length" class="no-categories">
+              Нет категорий в этом блоке
+            </div>
+            <div v-else class="categories-list">
+              <el-tag
+                v-for="catId in selectedCategorySection.categories"
+                :key="catId"
+                class="category-tag"
+                closable
+                @close="removeCategoryFromSection(catId)"
+              >
+                {{ getCategoryName(catId) }} (ID: {{ catId }})
+              </el-tag>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -424,16 +480,41 @@ export default {
       category: [{ required: true, message: 'Выберите категорию', trigger: 'change' }]
     }
 
+    const categorySectionDialogVisible = ref(false)
+    const selectedCategorySection = ref(null)
+    const categoryToAdd = ref(null)
+    const availableCategoriesToAdd = computed(() => {
+      if (!selectedCategorySection.value || !selectedCategorySection.value.categories) {
+        return availableCategories.value;
+      }
+      
+      return availableCategories.value.filter(
+        cat => !selectedCategorySection.value.categories.includes(cat.id)
+      );
+    });
+
     const fetchCategorySections = async () => {
       loadingSections.value = true
       try {
         const response = await axios.get('/admin/ingredient/category-section/')
-        const sectionsData = Array.isArray(response.data) ? response.data : []
-        categorySections.value = sectionsData.map(section => ({
-          ...section,
-          categories: Array.isArray(section.categories) ? section.categories : []
-        }))
-      } catch (error) {
+        if (response.data && Array.isArray(response.data)) {
+          categorySections.value = response.data.map(section => ({
+            ...section,
+            categories: Array.isArray(section.categories) ? section.categories : []
+          }))
+        } else if (response.data && typeof response.data === 'object' && Array.isArray(response.data.results)) {
+          categorySections.value = response.data.results.map(section => ({
+            ...section,
+            categories: Array.isArray(section.categories) ? section.categories : []
+          }))
+        } else {
+          categorySections.value = []
+        }
+        
+        if (categorySections.value.length > 0) {
+          await searchCategories('')
+        }
+      } catch {
         ElMessage.error('Ошибка при загрузке блоков категорий')
       } finally {
         loadingSections.value = false
@@ -443,15 +524,17 @@ export default {
     const handleCategoriesChange = async (row, value) => {
       try {
         const payload = {
-          ...row,
           categories: Array.isArray(value) ? value : []
         }
         await axios.put(`/admin/ingredient/category-section/${row.id}/`, payload)
+        row.categories = Array.isArray(value) ? value : []
         ElMessage.success('Категории обновлены')
-      } catch (error) {
+      } catch {
         ElMessage.error('Ошибка при обновлении категорий')
+        await fetchCategorySections()
       }
     }
+
     const fetchCategories = async (query = '', page = 1) => {
       loadingCategories.value = true
       try {
@@ -495,17 +578,31 @@ export default {
     const searchCategories = async (query) => {
       if (query) {
         try {
-          const searchParams = isNaN(query) ? 
-            { search: query } : 
-            { id: query }
+          const searchParams = !isNaN(query) ? { id: query } : { search: query }
           const response = await axios.get('/admin/ingredient/category/', { params: searchParams })
-          availableCategories.value = Array.isArray(response.data.results) ? response.data.results : 
-            (Array.isArray(response.data) ? response.data : [])
-        } catch (error) {
+          if (response.data && Array.isArray(response.data)) {
+            availableCategories.value = response.data
+          } else if (response.data && Array.isArray(response.data.results)) {
+            availableCategories.value = response.data.results
+          } else {
+            availableCategories.value = []
+          }
+        } catch {
           ElMessage.error('Ошибка при поиске категорий')
         }
       } else {
-        availableCategories.value = []
+        try {
+          const response = await axios.get('/admin/ingredient/category/')
+          if (response.data && Array.isArray(response.data)) {
+            availableCategories.value = response.data
+          } else if (response.data && Array.isArray(response.data.results)) {
+            availableCategories.value = response.data.results
+          } else {
+            availableCategories.value = []
+          }
+        } catch {
+          ElMessage.error('Ошибка при загрузке категорий')
+        }
       }
     }
 
@@ -652,12 +749,15 @@ export default {
 
     const handleIngredientCategoryChange = async (row, value) => {
       try {
+        const selectedCategory = availableCategories.value.find(cat => cat.id === value)
         const payload = {
           ...row,
-          category: value
+          category: value,
+          category_name: selectedCategory?.name || ''
         }
         await axios.patch(`/admin/ingredient/${row.id}/`, payload)
         ElMessage.success('Категория ингредиента обновлена')
+        row.category_name = selectedCategory?.name || ''
       } catch (error) {
         ElMessage.error('Ошибка при обновлении категории ингредиента')
       }
@@ -683,8 +783,107 @@ export default {
       })
     }
 
-    onMounted(() => {
-      fetchCategorySections()
+    const removeCategory = async (row, catId) => {
+      try {
+        const newCategories = Array.isArray(row.categories) 
+          ? row.categories.filter(id => id !== catId) 
+          : [];
+          
+        await handleCategoriesChange(row, newCategories)
+      } catch (error) {
+        ElMessage.error('Ошибка при удалении категории')
+      }
+    }
+
+    const getCategoryName = (catId) => {
+      if (!catId) return '';
+      
+      const category = availableCategories.value.find(cat => cat.id === catId);
+      
+      return category ? category.name : `ID: ${catId}`;
+    }
+
+    const handleCategorySectionClick = (row) => {
+      selectedCategorySection.value = { ...row };
+      categoryToAdd.value = null;
+      categorySectionDialogVisible.value = true;
+    };
+
+    const addCategoryToSection = async () => {
+      if (!categoryToAdd.value || !selectedCategorySection.value) return;
+      
+      try {
+        const currentCategories = selectedCategorySection.value.categories || [];
+        const currentCategoryIds = currentCategories.map(cat => {
+          if (cat && typeof cat === 'object' && 'id' in cat) {
+            return Number(cat.id);
+          }
+          return Number(cat);
+        }).filter(id => !isNaN(id) && id !== null);
+        
+        const newCategoryId = Number(categoryToAdd.value);
+        
+        if (newCategoryId && !isNaN(newCategoryId)) {
+          if (!currentCategoryIds.includes(newCategoryId)) {
+            const newCategories = [...currentCategoryIds, newCategoryId];
+            
+            await axios.put(`/admin/ingredient/category-section/${selectedCategorySection.value.id}/`, {
+              categories: newCategories
+            });
+            
+            selectedCategorySection.value.categories = newCategories;
+            const index = categorySections.value.findIndex(s => s.id === selectedCategorySection.value.id);
+            if (index !== -1) {
+              categorySections.value[index].categories = newCategories;
+            }
+            
+            categoryToAdd.value = null;
+            ElMessage.success('Категория добавлена в блок');
+          } else {
+            ElMessage.warning('Эта категория уже добавлена в блок');
+          }
+        } else {
+          ElMessage.error('Некорректный ID категории');
+        }
+      } catch {
+        ElMessage.error('Ошибка при добавлении категории в блок');
+      }
+    };
+    
+    const removeCategoryFromSection = async (catId) => {
+      if (!selectedCategorySection.value) return;
+      
+      try {
+        const currentCategories = selectedCategorySection.value.categories || [];
+        const currentCategoryIds = currentCategories.map(cat => {
+          if (cat && typeof cat === 'object' && 'id' in cat) {
+            return Number(cat.id);
+          }
+          return Number(cat);
+        }).filter(id => !isNaN(id) && id !== null);
+        
+        const catIdToRemove = Number(catId);
+        const newCategories = currentCategoryIds.filter(id => id !== catIdToRemove);
+        
+        await axios.put(`/admin/ingredient/category-section/${selectedCategorySection.value.id}/`, {
+          categories: newCategories
+        });
+        
+        selectedCategorySection.value.categories = newCategories;
+        const index = categorySections.value.findIndex(s => s.id === selectedCategorySection.value.id);
+        if (index !== -1) {
+          categorySections.value[index].categories = newCategories;
+        }
+        
+        ElMessage.success('Категория удалена из блока');
+      } catch {
+        ElMessage.error('Ошибка при удалении категории из блока');
+      }
+    };
+
+    onMounted(async () => {
+      await fetchCategorySections()
+      await searchCategories('')
       fetchCategories()
       fetchIngredients()
     })
@@ -727,7 +926,16 @@ export default {
       handleIngredientSubmit,
       ingredientDialogTitle: computed(() => isEditIngredient.value ? 'Редактировать ингредиент' : 'Создать ингредиент'),
       ingredientPagination,
-      handleIngredientPageChange
+      handleIngredientPageChange,
+      removeCategory,
+      getCategoryName,
+      categorySectionDialogVisible,
+      selectedCategorySection,
+      categoryToAdd,
+      availableCategoriesToAdd,
+      handleCategorySectionClick,
+      addCategoryToSection,
+      removeCategoryFromSection,
     }
   }
 }
@@ -765,5 +973,72 @@ h1 {
 
 h2 {
   margin-bottom: 20px;
+}
+
+.selected-categories {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.el-tag {
+  margin: 2px;
+}
+
+.categories-count {
+  color: #409EFF;
+  cursor: pointer;
+}
+
+.section-info {
+  margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.section-info h3 {
+  margin: 0 0 10px 0;
+}
+
+.section-info p {
+  margin: 0;
+  color: #666;
+}
+
+.categories-management {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.add-category-section, 
+.current-categories-section {
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+
+.add-category-controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.categories-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.category-tag {
+  margin: 2px;
+}
+
+.no-categories {
+  color: #999;
+  font-style: italic;
+  margin-top: 10px;
 }
 </style> 
