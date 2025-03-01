@@ -130,6 +130,9 @@
                   label="Дата рождения"
                   type="date"
                   density="comfortable"
+                  :max="new Date().toISOString().split('T')[0]"
+                  clearable
+                  @click:clear="editedItem.date_of_birthday = null"
                 />
               </v-col>
               <v-col cols="12" sm="6">
@@ -239,7 +242,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import axios from '../plugins/axios'
 import { useToast } from 'vue-toastification'
 import { useRoute } from 'vue-router'
@@ -259,6 +262,13 @@ export default {
     const avatarFile = ref(null)
     const avatarPreviewDialog = ref(false)
     const selectedAvatar = ref(null)
+    const dateMenu = ref(false)
+    const formattedBirthday = computed(() => {
+      if (!editedItem.value.date_of_birthday) return ''
+      const date = new Date(editedItem.value.date_of_birthday)
+      if (isNaN(date.getTime())) return ''
+      return date.toLocaleDateString('ru-RU')
+    })
 
     const headers = [
       { title: 'ID', key: 'id', width: '50px' },
@@ -369,6 +379,9 @@ export default {
           ? item.user_permissions.map(p => typeof p === 'object' ? p.id : Number(p))
           : []
       }
+      if (itemCopy.date_of_birth) {
+        itemCopy.date_of_birthday = itemCopy.date_of_birth
+      }
       editedItem.value = itemCopy
       dialog.value = true
       
@@ -377,6 +390,9 @@ export default {
           console.log('Detailed user data:', response.data)
           if (response.data.user_permissions) {
             editedItem.value.user_permissions = response.data.user_permissions
+          }
+          if (response.data.date_of_birth) {
+            editedItem.value.date_of_birthday = response.data.date_of_birth
           }
         })
         .catch(error => {
@@ -396,7 +412,11 @@ export default {
         
         Object.keys(editedItem.value).forEach(key => {
           if (editedItem.value[key] !== null && key !== 'avatar' && key !== 'avatarFile' && key !== 'user_permissions') {
-            formData.append(key, editedItem.value[key])
+            if (key === 'date_of_birthday') {
+              formData.append('date_of_birth', editedItem.value[key])
+            } else {
+              formData.append(key, editedItem.value[key])
+            }
           }
         })
 
@@ -487,7 +507,9 @@ export default {
       saveUser,
       deleteUser,
       handleAvatarChange,
-      showAvatarPreview
+      showAvatarPreview,
+      dateMenu,
+      formattedBirthday
     }
   }
 }

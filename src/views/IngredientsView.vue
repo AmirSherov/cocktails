@@ -194,32 +194,31 @@
         />
         <el-table-column
           prop="category"
-          label="ID категории"
-          width="120"
-          sortable
-        />
-        <el-table-column
-          prop="category_name"
           label="Категория"
           sortable
+          width="300"
         >
           <template #default="{ row }">
-            {{ row.category_name }}
-            <el-select
-              v-model="row.category"
-              filterable
-              remote
-              :remote-method="searchCategories"
-              placeholder="Выберите категорию"
-              @change="(value) => handleIngredientCategoryChange(row, value)"
-            >
-              <el-option
-                v-for="item in availableCategories"
-                :key="item.id"
-                :label="item.name"
-                :value="item.id"
-              />
-            </el-select>
+            <div class="category-info">
+              <span>ID: {{ row.category }}</span>
+              <span class="category-name">{{ getCategoryName(row.category) }}</span>
+              <el-select
+                v-model="row.category"
+                filterable
+                remote
+                :remote-method="searchCategories"
+                placeholder="Выберите категорию"
+                @change="(value) => handleIngredientCategoryChange(row, value)"
+                class="category-select"
+              >
+                <el-option
+                  v-for="item in availableCategories"
+                  :key="item.id"
+                  :label="`${item.name} (ID: ${item.id})`"
+                  :value="item.id"
+                />
+              </el-select>
+            </div>
           </template>
         </el-table-column>
         <el-table-column
@@ -352,7 +351,7 @@
         <span class="dialog-footer">
           <el-button @click="ingredientDialogVisible = false">Отмена</el-button>
           <el-button type="primary" @click="handleIngredientSubmit">
-            {{ isEditIngredient ? 'Сохранить' : 'Создать' }}
+            Сохранить
           </el-button>
         </span>
       </template>
@@ -673,7 +672,8 @@ export default {
           params: {
             search: query || undefined,
             page: page,
-            page_size: ingredientPagination.value.pageSize
+            page_size: ingredientPagination.value.pageSize,
+            ordering: 'name'  // Default sorting by name
           }
         })
 
@@ -681,6 +681,10 @@ export default {
           if (Array.isArray(response.data.results)) {
             ingredients.value = response.data.results
             ingredientPagination.value.total = response.data.count || 0
+            
+            // Load category names for all ingredients
+            const uniqueCategoryIds = [...new Set(response.data.results.map(i => i.category))]
+            await searchCategories(uniqueCategoryIds.join(','))
           } else if (Array.isArray(response.data)) {
             ingredients.value = response.data
             ingredientPagination.value.total = response.data.length
@@ -747,17 +751,11 @@ export default {
       }
     }
 
-    const handleIngredientCategoryChange = async (row, value) => {
+    const handleIngredientCategoryChange = async (row, categoryId) => {
       try {
-        const selectedCategory = availableCategories.value.find(cat => cat.id === value)
-        const payload = {
-          ...row,
-          category: value,
-          category_name: selectedCategory?.name || ''
-        }
-        await axios.patch(`/admin/ingredient/${row.id}/`, payload)
+        await axios.patch(`/admin/ingredient/${row.id}/`, { category: categoryId })
         ElMessage.success('Категория ингредиента обновлена')
-        row.category_name = selectedCategory?.name || ''
+        fetchIngredients(ingredientSearchQuery.value, ingredientPagination.value.currentPage)
       } catch (error) {
         ElMessage.error('Ошибка при обновлении категории ингредиента')
       }
@@ -795,12 +793,9 @@ export default {
       }
     }
 
-    const getCategoryName = (catId) => {
-      if (!catId) return '';
-      
-      const category = availableCategories.value.find(cat => cat.id === catId);
-      
-      return category ? category.name : `ID: ${catId}`;
+    const getCategoryName = (categoryId) => {
+      const category = availableCategories.value.find(c => c.id === categoryId)
+      return category ? category.name : 'Не указана'
     }
 
     const handleCategorySectionClick = (row) => {
@@ -922,7 +917,6 @@ export default {
       handleEditIngredient,
       handleDeleteIngredient,
       handleIngredientUpdate,
-      handleIngredientCategoryChange,
       handleIngredientSubmit,
       ingredientDialogTitle: computed(() => isEditIngredient.value ? 'Редактировать ингредиент' : 'Создать ингредиент'),
       ingredientPagination,
@@ -1040,5 +1034,29 @@ h2 {
   color: #999;
   font-style: italic;
   margin-top: 10px;
+}
+
+.category-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.category-name {
+  font-weight: 500;
+  color: #606266;
+}
+
+.category-select {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.el-select :deep(.el-input__wrapper) {
+  background-color: transparent;
+}
+
+.el-button.save-btn {
+  margin-left: 8px;
 }
 </style> 

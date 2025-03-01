@@ -133,7 +133,8 @@
         :page-size="pageSize"
         :total="totalItems"
         @current-change="handlePageChange"
-        layout="prev, pager, next"
+        layout="total, prev, pager, next"
+        :pager-count="7"
       />
     </div>
     <el-dialog
@@ -246,7 +247,7 @@ export default {
     const fetchTools = async (query = '') => {
       loading.value = true
       try {
-        const response = await axios.get(`/admin/tool/${query ? `?search=${query}&` : '?'}page=${currentPage.value}`)
+        const response = await axios.get(`/admin/tool/${query ? `?search=${query}&` : '?'}page=${currentPage.value}&page_size=${pageSize.value}`)
         tools.value = response.data.results || []
         totalItems.value = response.data.count || 0
       } catch (error) {
