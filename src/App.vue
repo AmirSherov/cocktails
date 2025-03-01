@@ -17,7 +17,9 @@ export default {
       { title: 'Рассылки', path: '/mailing', icon: 'mdi-email' },
       { title: 'FAQ', path: '/faq', icon: 'mdi-frequently-asked-questions' },
       { title: 'Тикеты', path: '/tickets', icon: 'mdi-ticket-account' },
-      { title: 'Статистика', path: '/statistics', icon: 'mdi-chart-box' }
+      { title: 'Статистика', path: '/statistics', icon: 'mdi-chart-box' },
+      { title: 'Инструменты', path: '/tools', icon: 'mdi-tools' },
+      { title: 'Ингредиенты', path: '/ingredients', icon: 'mdi-food-variant' }
     ]
 
     const handleLogout = async () => {
