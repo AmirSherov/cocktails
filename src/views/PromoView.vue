@@ -580,10 +580,11 @@ export default {
       try {
         await axios.delete(`/admin/promo/purchased/${item.id}/`)
         toast.success('Покупка успешно удалена')
-        // Обновляем список истории
+        // Удаляем элемент из списка истории
+        promoHistory.value = promoHistory.value.filter(p => p.id !== item.id)
+        // Обновляем основной список промокодов
         const currentPromo = promos.value.find(p => p.purchases?.some(pur => pur.id === item.id))
         if (currentPromo) {
-          showHistory(currentPromo)
           fetchPromos() // Обновляем список для обновления счетчика покупок
         }
       } catch (error) {

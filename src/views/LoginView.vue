@@ -159,6 +159,7 @@ export default {
 :deep(.v-field) {
   border-radius: 12px !important;
   transition: all 0.3s ease;
+  padding-left: 16px !important;
 }
 
 :deep(.v-field__outline) {
