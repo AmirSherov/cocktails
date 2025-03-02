@@ -19,11 +19,12 @@
       :data="tools"
       style="width: 100%"
       v-loading="loading"
+      @sort-change="handleSortChange"
     >
       <el-table-column
         prop="id"
         label="ID"
-        sortable
+        sortable="custom"
         width="80"
       />
       <el-table-column
@@ -52,6 +53,7 @@
       <el-table-column
         prop="language"
         label="Язык"
+        sortable="custom"
         width="100"
       >
         <template #default="{ row }">
@@ -61,24 +63,36 @@
       <el-table-column
         prop="name"
         label="Название"
-        sortable
+        sortable="custom"
       />
       <el-table-column
         prop="description"
         label="Описание"
-        sortable
+        sortable="custom"
         show-overflow-tooltip
-      />
+      >
+        <template #default="{ row }">
+          <span>{{ row.description }}</span>
+        </template>
+      </el-table-column>
       <el-table-column
         prop="history"
         label="История"
         show-overflow-tooltip
-      />
+      >
+        <template #default="{ row }">
+          <span>{{ row.history }}</span>
+        </template>
+      </el-table-column>
       <el-table-column
         prop="how_to_use"
         label="Как использовать"
         show-overflow-tooltip
-      />
+      >
+        <template #default="{ row }">
+          <span>{{ row.how_to_use }}</span>
+        </template>
+      </el-table-column>
       <el-table-column
         label="Ссылки"
         width="120"
@@ -224,6 +238,7 @@ export default {
     const currentPage = ref(1)
     const pageSize = ref(10)
     const totalItems = ref(0)
+    const sortBy = ref('')
 
     const form = ref({
       language: '',
@@ -247,14 +262,34 @@ export default {
     const fetchTools = async (query = '') => {
       loading.value = true
       try {
-        const response = await axios.get(`/admin/tool/${query ? `?search=${query}&` : '?'}page=${currentPage.value}&page_size=${pageSize.value}`)
+        let url = `/admin/tool/?page=${currentPage.value}&page_size=${pageSize.value}`
+        
+        if (query) {
+          url += `&search=${query}`
+        }
+        
+        if (sortBy.value) {
+          url += `&ordering=${sortBy.value}`
+        }
+        
+        const response = await axios.get(url)
         tools.value = response.data.results || []
         totalItems.value = response.data.count || 0
       } catch (error) {
+        console.error('Error fetching tools:', error)
         ElMessage.error('Ошибка при загрузке инструментов')
       } finally {
         loading.value = false
       }
+    }
+
+    const handleSortChange = ({ prop, order }) => {
+      if (!prop) {
+        sortBy.value = ''
+      } else {
+        sortBy.value = order === 'descending' ? `-${prop}` : prop
+      }
+      fetchTools(searchQuery.value)
     }
 
     const getImageUrl = (imagePath) => {
@@ -416,6 +451,8 @@ export default {
       elFormItemContentClass: 'el-form-item__content',
       linksContainerClass: 'links-container',
       addLinkButtonClass: 'add-link-button',
+      handleSortChange,
+      sortBy
     }
   }
 }

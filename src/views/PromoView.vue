@@ -214,13 +214,51 @@
         <v-card-title>Добавить промокод пользователю</v-card-title>
         <v-card-text>
           <v-form ref="purchaseForm" v-model="validPurchase">
-            <v-text-field
+            <div v-if="selectedUser" class="selected-user mb-4">
+              <div class="d-flex align-center">
+                <v-avatar size="40" class="mr-3">
+                  <v-img :src="selectedUser.avatar || 'https://static.vecteezy.com/system/resources/previews/009/292/244/non_2x/default-avatar-icon-of-social-media-user-vector.jpg'" />
+                </v-avatar>
+                <div>
+                  <div class="text-subtitle-1 font-weight-medium">{{ selectedUser.display_name }}</div>
+                  <div class="text-caption text-grey">{{ selectedUser.email }}</div>
+                </div>
+                <v-spacer></v-spacer>
+                <v-btn icon="mdi-close" size="small" @click="selectedUser = null"></v-btn>
+              </div>
+            </div>
+            
+            <v-autocomplete
+              v-if="!selectedUser"
               v-model="editedPurchase.user"
-              label="ID пользователя"
-              type="number"
-              required
-              :rules="[v => !!v || 'ID пользователя обязателен']"
-            />
+              :items="usersList"
+              item-title="display_name"
+              item-value="id"
+              label="Выберите пользователя"
+              :loading="loadingUsers"
+              return-object
+              clearable
+              @update:search="searchUsers"
+              @update:model-value="selectUser"
+              class="user-autocomplete"
+              :menu-props="{ 
+                contentClass: 'user-autocomplete-menu',
+                maxWidth: '500'
+              }"
+              eager
+            >
+              <template #item="{ item, props }">
+                <v-list-item v-bind="props" class="user-list-item">
+                  <template #prepend>
+                    <v-avatar size="32">
+                      <v-img :src="item.raw.avatar || 'https://static.vecteezy.com/system/resources/previews/009/292/244/non_2x/default-avatar-icon-of-social-media-user-vector.jpg'" />
+                    </v-avatar>
+                  </template>
+                  <v-list-item-title>{{ item.raw.first_name }} {{ item.raw.last_name }}</v-list-item-title>
+                  <v-list-item-subtitle>{{ item.raw.email }}</v-list-item-subtitle>
+                </v-list-item>
+              </template>
+            </v-autocomplete>
           </v-form>
         </v-card-text>
         <v-card-actions>
@@ -231,7 +269,7 @@
             text 
             @click="savePurchase"
             :loading="savingPurchase"
-            :disabled="!validPurchase"
+            :disabled="!editedPurchase.user && !selectedUser"
           >
             Добавить
           </v-btn>
@@ -332,6 +370,9 @@ export default {
     const historyDialog = ref(false)
     const loadingHistory = ref(false)
     const promoHistory = ref([])
+    const usersList = ref([])
+    const loadingUsers = ref(false)
+    const selectedUser = ref(null)
 
     const headers = [
       { title: 'ID', key: 'id', width: '80px' },
@@ -395,11 +436,9 @@ export default {
       loading.value = true
       try {
         const response = await axios.get('/admin/promo/')
-        console.log('Promo response:', response.data)
         promos.value = Array.isArray(response.data) ? response.data : 
                       response.data.results ? response.data.results : []
-      } catch (error) {
-        console.error('Error loading promos:', error)
+      } catch {
         toast.error('Ошибка при загрузке промокодов')
         promos.value = []
       }
@@ -413,8 +452,7 @@ export default {
           const response = await axios.get(`/admin/promo/?search=${search.value}`)
           promos.value = Array.isArray(response.data) ? response.data : 
                         response.data.results ? response.data.results : []
-        } catch (error) {
-          console.error('Error searching:', error)
+        } catch {
           toast.error('Ошибка при поиске')
           promos.value = []
         }
@@ -439,8 +477,7 @@ export default {
         )
         item.purchases = Array.isArray(response.data) ? response.data :
                         response.data.results ? response.data.results : []
-      } catch (error) {
-        console.error('Error searching purchases:', error)
+      } catch {
         toast.error('Ошибка при поиске покупок')
         item.purchases = []
       }
@@ -479,10 +516,8 @@ export default {
         }
         closeDialog()
         fetchPromos()
-      } catch (error) {
-        console.error('Error saving promo:', error)
-        const errorMessage = error.response?.data?.detail || 'Ошибка при сохранении промокода'
-        toast.error(errorMessage)
+      } catch {
+        toast.error('Ошибка при сохранении промокода')
       } finally {
         saving.value = false
       }
@@ -500,28 +535,39 @@ export default {
         user: null,
         promo: item.id
       }
+      selectedUser.value = null
+      usersList.value = []
       purchaseDialog.value = true
+      searchUsers('a')
     }
 
     const closePurchaseDialog = () => {
       purchaseDialog.value = false
       editedPurchase.value = { ...defaultPurchase }
-      purchaseForm.value?.reset()
+      selectedUser.value = null
+      usersList.value = []
     }
 
     const savePurchase = async () => {
-      if (!purchaseForm.value?.validate()) return
+      if (!editedPurchase.value.user && !selectedUser.value) {
+        toast.error('Выберите пользователя')
+        return
+      }
 
       savingPurchase.value = true
       try {
-        await axios.post('/admin/promo/purchased/', editedPurchase.value)
+        const user = selectedUser.value || editedPurchase.value.user
+        const purchaseData = {
+          user: typeof user === 'object' ? user.id : user,
+          promo: editedPurchase.value.promo
+        }
+        
+        await axios.post('/admin/promo/purchased/', purchaseData)
         toast.success('Промокод успешно добавлен пользователю')
         closePurchaseDialog()
-        fetchPromos() // Обновляем список для обновления счетчика покупок
-      } catch (error) {
-        console.error('Error adding promo to user:', error)
-        const errorMessage = error.response?.data?.detail || 'Ошибка при добавлении промокода пользователю'
-        toast.error(errorMessage)
+        fetchPromos()
+      } catch {
+        toast.error('Ошибка при добавлении промокода пользователю')
       } finally {
         savingPurchase.value = false
       }
@@ -544,15 +590,13 @@ export default {
         } else if (deleteType.value === 'purchase') {
           await axios.delete(`/admin/promo/purchased/${itemToDelete.value.id}/`)
           toast.success('Покупка успешно удалена')
-          // Обновляем список покупок для текущего промокода
           const promoItem = promos.value.find(p => p.purchases?.some(pur => pur.id === itemToDelete.value.id))
           if (promoItem) {
             handlePurchaseSearch(promoItem.id)
           }
-          fetchPromos() // Обновляем список для обновления счетчика покупок
+          fetchPromos()
         }
-      } catch (error) {
-        console.error('Error deleting:', error)
+      } catch {
         toast.error(`Ошибка при удалении ${deleteType.value === 'promo' ? 'промокода' : 'покупки'}`)
       } finally {
         deleteDialog.value = false
@@ -567,8 +611,7 @@ export default {
         const response = await axios.get(`/admin/promo/purchased/?promo=${item.id}`)
         promoHistory.value = Array.isArray(response.data) ? response.data : 
                             response.data.results ? response.data.results : []
-      } catch (error) {
-        console.error('Error loading promo history:', error)
+      } catch {
         toast.error('Ошибка при загрузке истории промокода')
         promoHistory.value = []
       } finally {
@@ -580,17 +623,45 @@ export default {
       try {
         await axios.delete(`/admin/promo/purchased/${item.id}/`)
         toast.success('Покупка успешно удалена')
-        // Удаляем элемент из списка истории
         promoHistory.value = promoHistory.value.filter(p => p.id !== item.id)
-        // Обновляем основной список промокодов
         const currentPromo = promos.value.find(p => p.purchases?.some(pur => pur.id === item.id))
         if (currentPromo) {
-          fetchPromos() // Обновляем список для обновления счетчика покупок
+          fetchPromos()
         }
-      } catch (error) {
-        console.error('Error deleting purchase:', error)
+      } catch {
         toast.error('Ошибка при удалении покупки')
       }
+    }
+
+    const searchUsers = async (query) => {
+      if (!query && query !== 'a') {
+        return
+      }
+
+      loadingUsers.value = true
+      try {
+        const searchParam = query === 'a' ? '' : query
+        const response = await axios.get(`/admin/profile/?search=${searchParam}`)
+        const users = Array.isArray(response.data) ? response.data : 
+                     response.data.results ? response.data.results : []
+        
+        usersList.value = users.map(user => ({
+          id: user.id,
+          email: user.email,
+          avatar: user.avatar,
+          display_name: user.first_name + ' ' + user.last_name
+        }))
+      } catch {
+        toast.error('Ошибка при поиске пользователей')
+        usersList.value = []
+      } finally {
+        loadingUsers.value = false
+      }
+    }
+
+    const selectUser = (user) => {
+      selectedUser.value = user
+      editedPurchase.value.user = user
     }
 
     onMounted(() => {
@@ -613,6 +684,7 @@ export default {
       purchaseHeaders,
       editedItem,
       editedPurchase,
+      selectedUser,
       valid,
       validPurchase,
       form,
@@ -636,7 +708,11 @@ export default {
       promoHistory,
       historyHeaders,
       showHistory,
-      deletePurchaseFromHistory
+      deletePurchaseFromHistory,
+      usersList,
+      loadingUsers,
+      searchUsers,
+      selectUser
     }
   }
 }
@@ -687,5 +763,55 @@ export default {
 
 .gap-4 {
   gap: 16px;
+}
+
+.user-autocomplete {
+  width: 100%;
+}
+
+.user-autocomplete-menu {
+  max-width: 500px !important;
+  margin: 0;
+  padding: 0;
+}
+
+.user-list-item {
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  width: 100%;
+}
+
+.user-list-item:last-child {
+  border-bottom: none;
+}
+
+.user-list-item .v-list-item-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.user-list-item .v-list-item-subtitle {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.v-list-item__prepend {
+  margin-right: 12px;
+}
+
+.v-autocomplete__content {
+  max-width: 500px !important;
+}
+
+.v-list {
+  max-width: 500px !important;
+}
+
+.selected-user {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  padding: 12px;
+  background-color: #f5f5f5;
 }
 </style> 

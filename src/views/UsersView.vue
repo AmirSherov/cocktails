@@ -51,13 +51,16 @@
 
         <template #[`item.is_staff`]="{ item }">
           <v-chip
-            v-if="item.is_staff"
-            color="primary"
+            :color="item.is_staff ? 'primary' : 'default'"
             size="x-small"
             class="text-caption"
           >
-            Менеджер
+            {{ item.is_staff ? 'Менеджер' : 'Пользователь' }}
           </v-chip>
+        </template>
+
+        <template #[`item.date_of_birth`]="{ item }">
+          {{ formatDate(item.date_of_birth) }}
         </template>
 
         <template #[`item.actions`]="{ item }">
@@ -126,13 +129,13 @@
               </v-col>
               <v-col cols="12" sm="6">
                 <v-text-field
-                  v-model="editedItem.date_of_birthday"
+                  v-model="editedItem.date_of_birth"
                   label="Дата рождения"
                   type="date"
                   density="comfortable"
                   :max="new Date().toISOString().split('T')[0]"
                   clearable
-                  @click:clear="editedItem.date_of_birthday = null"
+                  @click:clear="editedItem.date_of_birth = null"
                 />
               </v-col>
               <v-col cols="12" sm="6">
@@ -183,6 +186,7 @@
                   label="Менеджер"
                   color="primary"
                   hide-details
+                  @update:model-value="handleStaffChange"
                 />
               </v-col>
               <v-col cols="12">
@@ -196,6 +200,7 @@
                   chips
                   density="comfortable"
                   clearable
+                  :disabled="!editedItem.is_staff"
                 />
               </v-col>
             </v-row>
@@ -264,8 +269,8 @@ export default {
     const selectedAvatar = ref(null)
     const dateMenu = ref(false)
     const formattedBirthday = computed(() => {
-      if (!editedItem.value.date_of_birthday) return ''
-      const date = new Date(editedItem.value.date_of_birthday)
+      if (!editedItem.value.date_of_birth) return ''
+      const date = new Date(editedItem.value.date_of_birth)
       if (isNaN(date.getTime())) return ''
       return date.toLocaleDateString('ru-RU')
     })
@@ -276,7 +281,7 @@ export default {
       { title: 'Имя', key: 'first_name', width: '120px' },
       { title: 'Фамилия', key: 'last_name', width: '120px' },
       { title: 'Email', key: 'email' },
-      { title: 'Дата рождения', key: 'date_of_birthday', width: '120px' },
+      { title: 'Дата рождения', key: 'date_of_birth', width: '120px' },
       { title: 'Пол', key: 'gender', width: '100px' },
       { title: 'ОС', key: 'os', width: '100px' },
       { title: 'Статус', key: 'is_active', width: '100px' },
@@ -290,7 +295,7 @@ export default {
       last_name: '',
       email: '',
       password: '',
-      date_of_birthday: '',
+      date_of_birth: '',
       gender: 'male',
       os: null,
       is_active: true,
@@ -305,7 +310,7 @@ export default {
       last_name: '',
       email: '',
       password: '',
-      date_of_birthday: '',
+      date_of_birth: '',
       gender: 'male',
       os: null,
       is_active: true,
@@ -379,9 +384,6 @@ export default {
           ? item.user_permissions.map(p => typeof p === 'object' ? p.id : Number(p))
           : []
       }
-      if (itemCopy.date_of_birth) {
-        itemCopy.date_of_birthday = itemCopy.date_of_birth
-      }
       editedItem.value = itemCopy
       dialog.value = true
       
@@ -392,7 +394,7 @@ export default {
             editedItem.value.user_permissions = response.data.user_permissions
           }
           if (response.data.date_of_birth) {
-            editedItem.value.date_of_birthday = response.data.date_of_birth
+            editedItem.value.date_of_birth = response.data.date_of_birth
           }
         })
         .catch(error => {
@@ -412,7 +414,7 @@ export default {
         
         Object.keys(editedItem.value).forEach(key => {
           if (editedItem.value[key] !== null && key !== 'avatar' && key !== 'avatarFile' && key !== 'user_permissions') {
-            if (key === 'date_of_birthday') {
+            if (key === 'date_of_birth') {
               formData.append('date_of_birth', editedItem.value[key])
             } else {
               formData.append(key, editedItem.value[key])
@@ -477,6 +479,20 @@ export default {
       avatarPreviewDialog.value = true
     }
 
+    const formatDate = (dateString) => {
+      if (!dateString) return ''
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) return ''
+      return date.toLocaleDateString('ru-RU')
+    }
+
+    const handleStaffChange = (value) => {
+      if (!value) {
+        // Если пользователь больше не менеджер, очищаем все разрешения
+        editedItem.value.user_permissions = []
+      }
+    }
+
     onMounted(() => {
       if (route.query.search) {
         search.value = route.query.search
@@ -509,7 +525,9 @@ export default {
       handleAvatarChange,
       showAvatarPreview,
       dateMenu,
-      formattedBirthday
+      formattedBirthday,
+      formatDate,
+      handleStaffChange
     }
   }
 }

@@ -35,7 +35,13 @@
         >
           <template #default="{ row }">
             <div class="categories-count">
-              {{ row.categories?.length || 0 }} категорий
+              <el-tooltip
+                placement="top"
+                :content="getCategoriesPreview(row.categories)"
+                :show-after="200"
+              >
+                <span>{{ row.categories?.length || 0 }} категорий</span>
+              </el-tooltip>
             </div>
           </template>
         </el-table-column>
@@ -62,6 +68,7 @@
         v-loading="loadingCategories"
         row-key="id"
         :default-sort="{ prop: 'id', order: 'ascending' }"
+        @sort-change="handleCategorySort"
       >
         <el-table-column
           prop="id"
@@ -164,6 +171,7 @@
         v-loading="loadingIngredients"
         row-key="id"
         :default-sort="{ prop: 'id', order: 'ascending' }"
+        @sort-change="handleIngredientSort"
       >
         <el-table-column
           prop="id"
@@ -200,8 +208,8 @@
         >
           <template #default="{ row }">
             <div class="category-info">
-              <span>ID: {{ row.category }}</span>
-              <span class="category-name">{{ getCategoryName(row.category) }}</span>
+              <span v-if="getCategoryName(row.category)" class="category-name">{{ getCategoryName(row.category) }}</span>
+              <span v-else class="category-name text-gray">Категория не найдена</span>
               <el-select
                 v-model="row.category"
                 filterable
@@ -404,13 +412,13 @@
             </div>
             <div v-else class="categories-list">
               <el-tag
-                v-for="catId in selectedCategorySection.categories"
-                :key="catId"
+                v-for="cat in selectedCategorySection.categories"
+                :key="typeof cat === 'object' ? cat.id : cat"
                 class="category-tag"
                 closable
-                @close="removeCategoryFromSection(catId)"
+                @close="removeCategoryFromSection(typeof cat === 'object' ? cat.id : cat)"
               >
-                {{ getCategoryName(catId) }} (ID: {{ catId }})
+                {{ typeof cat === 'object' ? `${cat.name}: ${cat.id}` : getCategoryName(cat) }}
               </el-tag>
             </div>
           </div>
@@ -440,7 +448,9 @@ export default {
     const categoryPagination = ref({
       currentPage: 1,
       pageSize: 10,
-      total: 0
+      total: 0,
+      sortBy: 'id',
+      sortOrder: 'ascending'
     })
 
     const categoryForm = ref({
@@ -463,7 +473,9 @@ export default {
     const ingredientPagination = ref({
       currentPage: 1,
       pageSize: 10,
-      total: 0
+      total: 0,
+      sortBy: 'id',
+      sortOrder: 'ascending'
     })
 
     const ingredientForm = ref({
@@ -491,6 +503,8 @@ export default {
         cat => !selectedCategorySection.value.categories.includes(cat.id)
       );
     });
+
+    const categoryMap = ref({})
 
     const fetchCategorySections = async () => {
       loadingSections.value = true
@@ -534,44 +548,39 @@ export default {
       }
     }
 
-    const fetchCategories = async (query = '', page = 1) => {
+    const fetchCategories = async () => {
       loadingCategories.value = true
       try {
-        const response = await axios.get('/admin/ingredient/category/', {
-          params: {
-            search: query || undefined,
-            page: page,
-            page_size: categoryPagination.value.pageSize
-          }
+        const params = new URLSearchParams({
+          page: categoryPagination.value.currentPage.toString()
         })
-        
-        if (response.data && typeof response.data === 'object') {
-          if (Array.isArray(response.data.results)) {
-            categories.value = response.data.results
-            categoryPagination.value.total = response.data.count || 0
-          } else if (Array.isArray(response.data)) {
-            categories.value = response.data
-            categoryPagination.value.total = response.data.length
-          } else {
-            categories.value = []
-            categoryPagination.value.total = 0
-          }
+
+        if (categorySearchQuery.value) {
+          params.append('search', categorySearchQuery.value)
         }
-      } catch (error) {
+
+        if (categoryPagination.value.sortBy) {
+          const orderingPrefix = categoryPagination.value.sortOrder === 'descending' ? '-' : ''
+          params.append('ordering', orderingPrefix + categoryPagination.value.sortBy)
+        }
+        
+        const response = await axios.get(`/admin/ingredient/category/?${params.toString()}`)
+        categories.value = response.data.results || []
+        categoryPagination.value.total = response.data.count || 0
+      } catch {
         ElMessage.error('Ошибка при загрузке категорий')
-      } finally {
-        loadingCategories.value = false
       }
+      loadingCategories.value = false
     }
 
     const handleCategoryPageChange = (page) => {
       categoryPagination.value.currentPage = page
-      fetchCategories(categorySearchQuery.value, page)
+      fetchCategories()
     }
 
     const handleCategorySearch = () => {
       categoryPagination.value.currentPage = 1 
-      fetchCategories(categorySearchQuery.value, 1)
+      fetchCategories()
     }
 
     const searchCategories = async (query) => {
@@ -631,7 +640,7 @@ export default {
         await axios.delete(`/admin/ingredient/category/${row.id}/`)
         ElMessage.success('Категория удалена')
         fetchCategories()
-      } catch (error) {
+      } catch {
         ElMessage.error('Ошибка при удалении категории')
       }
     }
@@ -640,7 +649,7 @@ export default {
       try {
         await axios.patch(`/admin/ingredient/category/${row.id}/`, row)
         ElMessage.success('Категория обновлена')
-      } catch (error) {
+      } catch {
         ElMessage.error('Ошибка при обновлении категории')
       }
     }
@@ -658,56 +667,89 @@ export default {
             }
             categoryDialogVisible.value = false
             fetchCategories()
-          } catch (error) {
+          } catch {
             ElMessage.error('Ошибка при сохранении категории')
           }
         }
       })
     }
 
-    const fetchIngredients = async (query = '', page = 1) => {
+    const handleCategorySort = ({ prop, order }) => {
+      if (!prop) return
+      categoryPagination.value.sortBy = prop
+      categoryPagination.value.sortOrder = order || 'ascending'
+      categoryPagination.value.currentPage = 1
+      fetchCategories()
+    }
+
+    const handleIngredientSort = ({ prop, order }) => {
+      if (!prop) return
+      ingredientPagination.value.sortBy = prop
+      ingredientPagination.value.sortOrder = order || 'ascending'
+      ingredientPagination.value.currentPage = 1
+      fetchIngredients()
+    }
+
+    const fetchIngredients = async () => {
       loadingIngredients.value = true
       try {
-        const response = await axios.get('/admin/ingredient/', {
-          params: {
-            search: query || undefined,
-            page: page,
-            page_size: ingredientPagination.value.pageSize,
-            ordering: 'name'  // Default sorting by name
-          }
+        const params = new URLSearchParams({
+          page: ingredientPagination.value.currentPage.toString()
         })
 
-        if (response.data && typeof response.data === 'object') {
-          if (Array.isArray(response.data.results)) {
-            ingredients.value = response.data.results
-            ingredientPagination.value.total = response.data.count || 0
-            
-            // Load category names for all ingredients
-            const uniqueCategoryIds = [...new Set(response.data.results.map(i => i.category))]
-            await searchCategories(uniqueCategoryIds.join(','))
-          } else if (Array.isArray(response.data)) {
-            ingredients.value = response.data
-            ingredientPagination.value.total = response.data.length
-          } else {
-            ingredients.value = []
-            ingredientPagination.value.total = 0
-          }
+        if (ingredientSearchQuery.value) {
+          params.append('search', ingredientSearchQuery.value)
         }
-      } catch (error) {
+
+        if (ingredientPagination.value.sortBy) {
+          const orderingPrefix = ingredientPagination.value.sortOrder === 'descending' ? '-' : ''
+          params.append('ordering', orderingPrefix + ingredientPagination.value.sortBy)
+        }
+        
+        const response = await axios.get(`/admin/ingredient/?${params.toString()}`)
+        ingredients.value = response.data.results || []
+        ingredientPagination.value.total = response.data.count || 0
+        
+        const uniqueCategoryIds = [...new Set(ingredients.value.map(i => i.category).filter(Boolean))]
+        await loadCategoriesInfo(uniqueCategoryIds)
+      } catch {
         ElMessage.error('Ошибка при загрузке ингредиентов')
-      } finally {
-        loadingIngredients.value = false
       }
+      loadingIngredients.value = false
+    }
+
+    const loadCategoriesInfo = async (categoryIds) => {
+      if (!categoryIds.length) return
+      
+      try {
+        const params = new URLSearchParams()
+        categoryIds.forEach(id => params.append('ids', id.toString()))
+        
+        const response = await axios.get(`/admin/ingredient/category/?${params.toString()}`)
+        const categories = Array.isArray(response.data) ? response.data : 
+                         response.data.results ? response.data.results : []
+        categories.forEach(category => {
+          categoryMap.value[category.id] = category
+        })
+      } catch {
+        ElMessage.error('Ошибка при загрузке информации о категориях')
+      }
+    }
+
+    const getCategoryName = (categoryId) => {
+      if (!categoryId) return 'Не указана'
+      const category = categoryMap.value[categoryId]
+      return category ? `${category.name}: ${category.id}` : `Категория: ${categoryId}`
     }
 
     const handleIngredientPageChange = (page) => {
       ingredientPagination.value.currentPage = page
-      fetchIngredients(ingredientSearchQuery.value, page)
+      fetchIngredients()
     }
 
     const handleIngredientSearch = () => {
-      ingredientPagination.value.currentPage = 1 
-      fetchIngredients(ingredientSearchQuery.value, 1)
+      ingredientPagination.value.currentPage = 1
+      fetchIngredients()
     }
 
     const resetIngredientForm = () => {
@@ -719,7 +761,7 @@ export default {
         is_alcoholic: false
       }
     }
-
+  
     const handleAddIngredient = () => {
       isEditIngredient.value = false
       resetIngredientForm()
@@ -737,7 +779,7 @@ export default {
         await axios.delete(`/admin/ingredient/${row.id}/`)
         ElMessage.success('Ингредиент удален')
         fetchIngredients()
-      } catch (error) {
+      } catch {
         ElMessage.error('Ошибка при удалении ингредиента')
       }
     }
@@ -746,7 +788,7 @@ export default {
       try {
         await axios.patch(`/admin/ingredient/${row.id}/`, row)
         ElMessage.success('Ингредиент обновлен')
-      } catch (error) {
+      } catch {
         ElMessage.error('Ошибка при обновлении ингредиента')
       }
     }
@@ -755,8 +797,8 @@ export default {
       try {
         await axios.patch(`/admin/ingredient/${row.id}/`, { category: categoryId })
         ElMessage.success('Категория ингредиента обновлена')
-        fetchIngredients(ingredientSearchQuery.value, ingredientPagination.value.currentPage)
-      } catch (error) {
+        fetchIngredients()
+      } catch {
         ElMessage.error('Ошибка при обновлении категории ингредиента')
       }
     }
@@ -774,7 +816,7 @@ export default {
             }
             ingredientDialogVisible.value = false
             fetchIngredients()
-          } catch (error) {
+          } catch {
             ElMessage.error('Ошибка при сохранении ингредиента')
           }
         }
@@ -788,14 +830,9 @@ export default {
           : [];
           
         await handleCategoriesChange(row, newCategories)
-      } catch (error) {
+      } catch {
         ElMessage.error('Ошибка при удалении категории')
       }
-    }
-
-    const getCategoryName = (categoryId) => {
-      const category = availableCategories.value.find(c => c.id === categoryId)
-      return category ? category.name : 'Не указана'
     }
 
     const handleCategorySectionClick = (row) => {
@@ -876,8 +913,41 @@ export default {
       }
     };
 
+    const getCategoriesPreview = (categories) => {
+      if (!categories || !categories.length) return 'Нет категорий'
+      
+      const previewCategories = categories.slice(0, 5)
+        .map(cat => {
+          if (typeof cat === 'object' && cat !== null) {
+            return cat.name
+          }
+          return getCategoryName(cat)
+        })
+        .filter(Boolean)
+      
+      let preview = previewCategories.join(', ')
+      if (categories.length > 5) {
+        preview += ` , \n... и еще ${categories.length - 5} категорий`
+      }
+      
+      return preview || 'Нет категорий'
+    }
+
     onMounted(async () => {
       await fetchCategorySections()
+      try {
+        const response = await axios.get('/admin/ingredient/category/', {
+          params: { page_size: 1000 }
+        })
+        const categories = Array.isArray(response.data) ? response.data :
+                         response.data.results ? response.data.results : []
+        categories.forEach(category => {
+          categoryMap.value[category.id] = category
+        })
+      } catch {
+        ElMessage.error('Ошибка при начальной загрузке категорий')
+      }
+      
       await searchCategories('')
       fetchCategories()
       fetchIngredients()
@@ -901,6 +971,7 @@ export default {
       handleDeleteCategory,
       handleCategoryUpdate,
       handleCategorySubmit,
+      handleCategorySort,
       searchCategories,
       categoryDialogTitle: computed(() => isEditCategory.value ? 'Редактировать категорию' : 'Создать категорию'),
       categoryPagination,
@@ -918,6 +989,8 @@ export default {
       handleDeleteIngredient,
       handleIngredientUpdate,
       handleIngredientSubmit,
+      handleIngredientSort,
+      handleIngredientCategoryChange,
       ingredientDialogTitle: computed(() => isEditIngredient.value ? 'Редактировать ингредиент' : 'Создать ингредиент'),
       ingredientPagination,
       handleIngredientPageChange,
@@ -930,6 +1003,7 @@ export default {
       handleCategorySectionClick,
       addCategoryToSection,
       removeCategoryFromSection,
+      getCategoriesPreview,
     }
   }
 }
@@ -1038,18 +1112,20 @@ h2 {
 
 .category-info {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
 }
 
 .category-name {
   font-weight: 500;
-  color: #606266;
+}
+
+.text-gray {
+  color: #909399;
 }
 
 .category-select {
-  margin-top: 4px;
-  width: 100%;
+  min-width: 200px;
 }
 
 .el-select :deep(.el-input__wrapper) {
