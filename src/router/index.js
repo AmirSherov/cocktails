@@ -12,6 +12,7 @@ import FAQView from '../views/FAQView.vue'
 import TicketsView from '../views/TicketsView.vue'
 import ToolsView from '../views/ToolsView.vue'
 import IngredientsView from '../views/IngredientsView.vue'
+import RecipesView from '../views/RecipesView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -90,6 +91,12 @@ const router = createRouter({
       path: '/ingredients',
       name: 'ingredients',
       component: IngredientsView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/recipes',
+      name: 'recipes',
+      component: RecipesView,
       meta: { requiresAuth: true }
     }
   ]
