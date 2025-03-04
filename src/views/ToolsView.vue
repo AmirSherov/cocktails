@@ -33,20 +33,19 @@
         width="120"
       >
         <template #default="{ row }">
-          <el-image
-            v-if="row.photo"
-            :src="row.photo"
-            fit="cover"
-            style="width: 50px; height: 50px; border-radius: 4px;"
-            :preview-src-list="[row.photo]"
-            :initial-index="0"
-          >
-            <template #error>
-              <div class="image-error">
-                <el-icon><picture-filled /></el-icon>
-              </div>
-            </template>
-          </el-image>
+          <div v-if="row.photo" style="cursor: pointer" @click="showImage(row.photo)">
+            <el-image
+              :src="row.photo"
+              fit="cover"
+              style="width: 50px; height: 50px; border-radius: 4px;"
+            >
+              <template #error>
+                <div class="image-error">
+                  <el-icon><picture-filled /></el-icon>
+                </div>
+              </template>
+            </el-image>
+          </div>
           <span v-else>Нет фото</span>
         </template>
       </el-table-column>
@@ -214,6 +213,24 @@
         </span>
       </template>
     </el-dialog>
+
+    <v-dialog v-model="imageDialog" max-width="800px">
+      <v-card>
+        <v-card-title class="bg-primary text-white pa-4">
+          <span>Просмотр изображения</span>
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-close" variant="text" color="white" @click="imageDialog = false"></v-btn>
+        </v-card-title>
+        <v-card-text class="pa-0">
+          <v-img
+            :src="selectedImage"
+            max-height="600"
+            contain
+            class="bg-grey-lighten-2"
+          ></v-img>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -221,13 +238,9 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from '@/plugins/axios'
 import { ElMessage } from 'element-plus'
-import { PictureFilled } from '@element-plus/icons-vue'
 
 export default {
   name: 'ToolsView',
-  components: {
-    PictureFilled
-  },
   setup() {
     const tools = ref([])
     const loading = ref(false)
@@ -258,6 +271,8 @@ export default {
 
     const imagePreview = ref('')
     const fileInput = ref(null)
+    const imageDialog = ref(false)
+    const selectedImage = ref(null)
 
     const fetchTools = async (query = '') => {
       loading.value = true
@@ -415,6 +430,13 @@ export default {
       form.value.links.splice(index, 1)
     }
 
+    const showImage = (imageUrl) => {
+      if (imageUrl) {
+        selectedImage.value = imageUrl;
+        imageDialog.value = true;
+      }
+    }
+
     onMounted(() => {
       fetchTools()
     })
@@ -452,7 +474,10 @@ export default {
       linksContainerClass: 'links-container',
       addLinkButtonClass: 'add-link-button',
       handleSortChange,
-      sortBy
+      sortBy,
+      imageDialog,
+      selectedImage,
+      showImage
     }
   }
 }

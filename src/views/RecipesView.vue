@@ -44,14 +44,10 @@
           density="compact"
           class="recipes-table"
           :loading="loading"
-          :items-per-page="15"
-          :page="page"
-          :server-items-length="totalItems"
-          @update:page="handlePageChange"
         >
-          <template #[`item.image`]="{ item }">
-            <v-avatar size="32" style="cursor: pointer">
-              <v-img :src="item.image" contain class="grey lighten-2" />
+          <template #[`item.photo`]="{ item }">
+            <v-avatar size="32" style="cursor: pointer" @click="showImage(item.photo)">
+              <v-img :src="item.photo" contain class="grey lighten-2" />
             </v-avatar>
           </template>
 
@@ -189,199 +185,244 @@
     </v-card>
 
       <!-- Диалог редактирования/создания рецепта -->
-      <v-dialog v-model="dialog" max-width="1200px">
+      <v-dialog v-model="dialog" max-width="1200px" persistent>
         <v-card>
-        <v-card-title class="bg-primary text-white pa-4">
-          <span>{{ formTitle }}</span>
+          <v-overlay v-model="isSaving" class="align-center justify-center">
+            <v-progress-circular
+              indeterminate
+              size="64"
+            ></v-progress-circular>
+            <div class="text-center mt-2">Сохранение рецепта...</div>
+          </v-overlay>
+          <v-card-title class="bg-primary text-white pa-4">
+            <span>{{ formTitle }}</span>
           </v-card-title>
 
-        <v-card-text class="pa-4">
-          <v-form ref="form">
-              <v-row>
-                <v-col cols="12" sm="6">
-                  <v-text-field
-                    v-model="editedItem.title"
-                    label="Название"
-                  required
-                  density="comfortable"
-                />
-                </v-col>
-                <v-col cols="12" sm="6">
-                  <v-select
-                    v-model="editedItem.language"
-                  :items="[
-                    { title: 'Русский', value: 'RU' },
-                    { title: 'Английский', value: 'ENG' }
-                  ]"
-                  item-title="title"
-                    item-value="value"
-                    label="Язык"
-                  density="comfortable"
-                />
-                </v-col>
-                <v-col cols="12">
-                  <v-textarea
-                    v-model="editedItem.description"
-                    label="Описание"
-                  density="comfortable"
-                />
-                </v-col>
-                <v-col cols="12" sm="6">
-                  <v-text-field
-                    v-model="editedItem.video_url"
-                    label="Ссылка на видео"
-                  density="comfortable"
-                />
-                </v-col>
-                <v-col cols="12" sm="3">
-                  <v-switch
-                    v-model="editedItem.isEnabled"
-                    label="Доступен"
-                  color="success"
-                />
-                </v-col>
-                <v-col cols="12" sm="3">
-                  <v-switch
-                    v-model="editedItem.is_alcoholic"
-                    label="Алкогольный"
-                  color="warning"
-                />
-                </v-col>
+          <v-card-text class="pa-4">
+            <v-form ref="form">
+                <v-row>
+                  <v-col cols="12" sm="6">
+                    <v-text-field
+                      v-model="editedItem.title"
+                      label="Название"
+                    required
+                    density="comfortable"
+                  />
+                  </v-col>
+                  <v-col cols="12" sm="6">
+                    <v-select
+                      v-model="editedItem.language"
+                    :items="[
+                      { title: 'Русский', value: 'RU' },
+                      { title: 'Английский', value: 'ENG' }
+                    ]"
+                    item-title="title"
+                      item-value="value"
+                      label="Язык"
+                    density="comfortable"
+                  />
+                  </v-col>
+                  <v-col cols="12">
+                    <v-textarea
+                      v-model="editedItem.description"
+                      label="Описание"
+                      density="comfortable"
+                    />
+                  </v-col>
+                  <v-col cols="12" sm="6">
+                    <v-text-field
+                      v-model="editedItem.video_url"
+                      label="Ссылка на видео"
+                      density="comfortable"
+                    />
+                  </v-col>
+                  <v-col cols="12" sm="6">
+                    <div class="d-flex flex-column">
+                      <label for="image-upload" class="mb-2">Изображение рецепта</label>
+                      <input
+                        id="image-upload"
+                        type="file"
+                        accept="image/*"
+                        @change="handleImageUpload"
+                        class="mb-2"
+                      />
+                      <img
+                        v-if="imagePreview || (editedIndex !== -1 && editedItem.photo)"
+                        :src="imagePreview || editedItem.photo"
+                        alt="Preview"
+                        style="max-width: 200px; max-height: 200px; cursor: pointer;"
+                        @click="showImage(imagePreview || editedItem.photo)"
+                      />
+                    </div>
+                  </v-col>
+                  <v-col cols="12" sm="3">
+                    <v-switch
+                      v-model="editedItem.isEnabled"
+                      label="Доступен"
+                    color="success"
+                  />
+                  </v-col>
+                  <v-col cols="12" sm="3">
+                    <v-switch
+                      v-model="editedItem.is_alcoholic"
+                      label="Алкогольный"
+                    color="warning"
+                  />
+                  </v-col>
 
-                <!-- Инструкция -->
-                <v-col cols="12">
-                <v-card outlined class="pa-4">
-                    <v-card-title>Инструкция</v-card-title>
-                    <v-card-text>
-                    <div v-for="(step, index) in editedItem.instruction" :key="index" class="d-flex align-center mb-2">
-                            <v-text-field
-                              v-model="editedItem.instruction[index]"
-                              :label="`Шаг ${index + 1}`"
+                  <!-- Инструкция -->
+                  <v-col cols="12">
+                  <v-card outlined class="pa-4">
+                      <v-card-title>Инструкция</v-card-title>
+                      <v-card-text>
+                      <div v-for="(step, index) in editedItem.instruction" :key="index" class="d-flex align-center mb-2">
+                              <v-text-field
+                                v-model="editedItem.instruction[index]"
+                                :label="`Шаг ${index + 1}`"
                         density="comfortable"
                         class="flex-grow-1 mr-2"
                       />
-                            <v-btn
+                              <v-btn
                         icon="mdi-delete"
                         color="error"
                         size="small"
                         variant="text"
                               @click="removeInstructionStep(index)"
                       />
-                    </div>
-                      <v-btn
-                        color="primary"
-                      variant="text"
-                      prepend-icon="mdi-plus"
-                        @click="addInstructionStep"
-                      class="mt-2"
-                      >
-                        Добавить шаг
-                      </v-btn>
-                    </v-card-text>
-                  </v-card>
-                </v-col>
+                            </div>
+                            <v-btn
+                              color="primary"
+                            variant="text"
+                            prepend-icon="mdi-plus"
+                              @click="addInstructionStep"
+                            class="mt-2"
+                            >
+                              Добавить шаг
+                            </v-btn>
+                          </v-card-text>
+                        </v-card>
+                      </v-col>
 
-                <!-- Инструменты -->
-                <v-col cols="12">
-                <v-card outlined class="pa-4">
-                    <v-card-title>Инструменты</v-card-title>
-                    <v-card-text>
-                      <v-autocomplete
-                      v-model="editedItem.tools"
-                        :items="availableTools"
-                      item-title="name"
-                        item-value="id"
-                        label="Добавить инструмент"
-                      density="comfortable"
-                      multiple
-                      chips
-                        @change="addTool"
-                    />
-                    <v-chip-group>
-                        <v-chip
-                          v-for="toolId in editedItem.tools"
-                          :key="toolId"
-                        closable
-                          @click:close="removeTool(toolId)"
-                        >
-                          {{ availableTools.find(t => t.id === toolId)?.name || toolId }}
-                        </v-chip>
-                      </v-chip-group>
-                    </v-card-text>
-                  </v-card>
-                </v-col>
+                      <!-- Инструменты -->
+                      <v-col cols="12">
+                      <v-card outlined class="pa-4">
+                          <v-card-title>Инструменты</v-card-title>
+                          <v-card-text>
+                            <v-autocomplete
+                            v-model="editedItem.tools"
+                              :items="availableTools"
+                            item-title="name"
+                              item-value="id"
+                              label="Добавить инструмент"
+                            density="comfortable"
+                            multiple
+                            chips
+                              @change="addTool"
+                          />
+                          <v-chip-group>
+                              <v-chip
+                                v-for="toolId in editedItem.tools"
+                                :key="toolId"
+                              closable
+                                @click:close="removeTool(toolId)"
+                              >
+                                {{ typeof toolId === 'object' ? toolId.name : (availableTools.find(t => t.id === toolId)?.name || toolId) }}
+                              </v-chip>
+                            </v-chip-group>
+                          </v-card-text>
+                        </v-card>
+                      </v-col>
 
-                <!-- Ингредиенты -->
-                <v-col cols="12">
-                <v-card outlined class="pa-4">
-                    <v-card-title>Ингредиенты</v-card-title>
-                    <v-card-text>
-                    <div v-for="(ingredient, index) in editedItem.ingredients" :key="index" class="d-flex align-center mb-2">
-                          <v-autocomplete
-                            v-model="ingredient.ingredient"
-                            :items="availableIngredients"
-                        item-title="name"
-                            item-value="id"
-                            label="Ингредиент"
-                        density="comfortable"
-                        class="mr-2"
-                      />
-                          <v-select
-                            v-model="ingredient.type"
-                            :items="measureTypes"
-                            label="Мера"
-                        density="comfortable"
-                        class="mr-2"
-                      />
-                          <v-text-field
-                            v-model="ingredient.quantity"
-                            label="Количество"
-                        density="comfortable"
-                        class="mr-2"
-                      />
-                          <v-btn
-                        icon="mdi-delete"
-                        color="error"
-                        size="small"
-                        variant="text"
-                            @click="removeIngredient(index)"
-                      />
-                    </div>
-                      <v-btn
-                        color="primary"
-                      variant="text"
-                      prepend-icon="mdi-plus"
-                        @click="addIngredient"
-                      class="mt-2"
-                      >
-                        Добавить ингредиент
-                      </v-btn>
-                    </v-card-text>
-                  </v-card>
-                </v-col>
-              </v-row>
-          </v-form>
-          </v-card-text>
+                      <!-- Ингредиенты -->
+                      <v-col cols="12">
+                      <v-card outlined class="pa-4">
+                          <v-card-title>Ингредиенты</v-card-title>
+                          <v-card-text>
+                          <div v-for="(ingredient, index) in editedItem.ingredients" :key="index" class="d-flex align-center mb-2">
+                                <v-autocomplete
+                                  v-model="ingredient.ingredient"
+                                  :items="availableIngredients"
+                              item-title="name"
+                                  item-value="id"
+                                  label="Ингредиент"
+                              density="comfortable"
+                                  class="mr-2"
+                                />
+                                  <v-select
+                                    v-model="ingredient.type"
+                                    :items="measureTypes"
+                                    label="Мера"
+                                density="comfortable"
+                                  class="mr-2"
+                                />
+                                  <v-text-field
+                                    v-model="ingredient.quantity"
+                                    label="Количество"
+                                density="comfortable"
+                                  class="mr-2"
+                                />
+                                  <v-btn
+                                icon="mdi-delete"
+                                color="error"
+                                size="small"
+                                variant="text"
+                                    @click="removeIngredient(index)"
+                                  />
+                                </div>
+                                  <v-btn
+                                color="primary"
+                              variant="text"
+                                prepend-icon="mdi-plus"
+                                  @click="addIngredient"
+                                class="mt-2"
+                                >
+                                  Добавить ингредиент
+                                </v-btn>
+                              </v-card-text>
+                            </v-card>
+                          </v-col>
+                        </v-row>
+                </v-form>
+                </v-card-text>
 
-        <v-card-actions class="pa-4">
-          <v-spacer />
-            <v-btn
-            color="grey"
-            variant="text"
-              @click="close"
-            >
-              Отмена
-            </v-btn>
-            <v-btn
-              color="primary"
-              @click="save"
-            class="ml-2"
-            >
-              Сохранить
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+              <v-card-actions class="pa-4">
+                <v-spacer />
+                  <v-btn
+                  color="grey"
+                  variant="text"
+                    @click="close"
+                  >
+                    Отмена
+                  </v-btn>
+                  <v-btn
+                    color="primary"
+                    @click="save"
+                  class="ml-2"
+                  >
+                    Сохранить
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+
+    <!-- Диалог для просмотра изображения -->
+    <v-dialog v-model="imageDialog" max-width="800px">
+      <v-card>
+        <v-card-title class="bg-primary text-white pa-4">
+          <span>Просмотр изображения</span>
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-close" variant="text" color="white" @click="imageDialog = false"></v-btn>
+        </v-card-title>
+        <v-card-text class="pa-0">
+          <v-img
+            :src="selectedImage"
+            max-height="600"
+            contain
+            class="bg-grey-lighten-2"
+          ></v-img>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -395,9 +436,10 @@ export default {
     activeTab: 0,
     search: '',
     dialog: false,
+    isSaving: false,
     headers: [
       { title: 'ID', key: 'id', sortable: true, width: '30px' },
-      { title: 'Фото', key: 'image', sortable: false, width: '30px' },
+      { title: 'Фото', key: 'photo', sortable: false, width: '30px' },
       { title: 'Язык', key: 'language', sortable: true, width: '30px' },
       { title: 'Название', key: 'title', sortable: true, width: '120px' },
       { title: 'Описание', key: 'description', sortable: false, show: [0], width: '120px' },
@@ -467,11 +509,12 @@ export default {
     sortBy: ['title'],
     sortDesc: [false],
     loading: false,
-    page: 1,
-    totalItems: 0,
-    nextUrl: null,
     currentPage: 1,
-    pageSize: 10
+    totalItems: 0,
+    imageFile: null,
+    imagePreview: null,
+    imageDialog: false,
+    selectedImage: null
   }),
 
   computed: {
@@ -522,9 +565,7 @@ export default {
     },
     search: {
       handler(newVal) {
-        if (this.activeTab === 1) {
-          this.debounceSearch(newVal);
-        }
+        this.debounceSearch(newVal);
       }
     }
   },
@@ -545,23 +586,29 @@ export default {
     },
 
     async performSearch(query) {
-      if (this.activeTab === 1) {
-        try {
-          this.loading = true;
-          const response = await axios.get(`/admin/recipe/approved/?page=${this.currentPage}&search=${query || ''}`);
-          console.log('Search API Response:', {
-            count: response.data.count,
-            next: response.data.next,
-            previous: response.data.previous,
-            results: response.data.results
-          });
-          this.approvedRecipes = this.processRecipes(response.data);
-          this.totalItems = response.data.count || 0;
-        } catch (error) {
-          console.error('Error searching recipes:', error);
-        } finally {
-          this.loading = false;
+      try {
+        this.loading = true;
+        let response;
+        
+        switch (this.activeTab) {
+          case 0:
+            response = await axios.get(`/admin/recipe/pending/?search=${query || ''}`);
+            this.pendingRecipes = this.processRecipes(response.data);
+            break;
+          case 1:
+            response = await axios.get(`/admin/recipe/approved/?page=${this.currentPage}&search=${query || ''}`);
+            this.approvedRecipes = this.processRecipes(response.data);
+            this.totalItems = response.data.count || 0;
+            break;
+          case 2:
+            response = await axios.get(`/admin/recipe/rejected/?search=${query || ''}`);
+            this.rejectedRecipes = this.processRecipes(response.data);
+            break;
         }
+      } catch (error) {
+        console.error('Error searching recipes:', error);
+      } finally {
+        this.loading = false;
       }
     },
 
@@ -570,25 +617,17 @@ export default {
         this.loading = true;
         let response;
         switch (this.activeTab) {
-          case 0: // На модерации
-            response = await axios.get('/admin/recipe/pending/');
-            console.log('Pending Recipes Response:', response.data);
+          case 0:
+            response = await axios.get(`/admin/recipe/pending/?search=${this.search || ''}`);
             this.pendingRecipes = this.processRecipes(response.data);
             break;
-          case 1: // Одобрены
+          case 1:
             response = await axios.get(`/admin/recipe/approved/?page=${this.currentPage}&search=${this.search || ''}`);
-            console.log('Approved Recipes Response:', {
-              count: response.data.count,
-              next: response.data.next,
-              previous: response.data.previous,
-              results: response.data.results
-            });
             this.approvedRecipes = this.processRecipes(response.data);
             this.totalItems = response.data.count || 0;
             break;
-          case 2: // Отклонены
-            response = await axios.get('/admin/recipe/rejected/');
-            console.log('Rejected Recipes Response:', response.data);
+          case 2:
+            response = await axios.get(`/admin/recipe/rejected/?search=${this.search || ''}`);
             this.rejectedRecipes = this.processRecipes(response.data);
             break;
         }
@@ -606,7 +645,7 @@ export default {
       const recipes = Array.isArray(data) ? data : Array.isArray(data.results) ? data.results : []
       return recipes.map(recipe => ({
         ...recipe,
-        // Преобразуем объект инструкций в массив
+        photo: recipe.photo || null,
         instruction: recipe.instruction ? 
           Object.entries(recipe.instruction)
             .sort(([a], [b]) => Number(a) - Number(b))
@@ -622,10 +661,6 @@ export default {
           axios.get('/admin/ingredient/')
         ])
         
-        console.log('Tools Response:', tools.data);
-        console.log('Ingredients Response:', ingredients.data);
-        
-        // Убедимся, что данные являются массивами
         this.availableTools = Array.isArray(tools.data) ? tools.data :
                             Array.isArray(tools.data.results) ? tools.data.results : []
         this.availableIngredients = Array.isArray(ingredients.data) ? ingredients.data :
@@ -640,6 +675,7 @@ export default {
     editRecipe(item) {
       this.editedIndex = this.getRecipeIndex(item)
       this.editedItem = Object.assign({}, item)
+      this.imagePreview = this.editedItem.photo;
       this.loadToolsAndIngredients()
       this.dialog = true
     },
@@ -679,23 +715,19 @@ export default {
     async approveRecipe(item) {
       try {
         let endpoint;
-        const updatedRecipe = {
-          ...item,
-          moderation_status: 'Approved',
-          tools: item.tools.map(tool => (typeof tool === 'object' ? tool.id : tool)),
-          photo: null
-        };
         
         switch (this.activeTab) {
-          case 0: // На модерации
+          case 0:
             endpoint = `/admin/recipe/pending/${item.id}/`;
-            await axios.put(endpoint, updatedRecipe);
             break;
-          case 2: // Отклонены
+          case 2:
             endpoint = `/admin/recipe/rejected/${item.id}/`;
-            await axios.put(endpoint, updatedRecipe);
             break;
         }
+
+        await axios.patch(endpoint, {
+          moderation_status: 'Approved'
+        });
         
         this.initialize();
       } catch (error) {
@@ -706,22 +738,19 @@ export default {
     async rejectRecipe(item) {
       try {
         let endpoint;
-        const updatedRecipe = {
-          ...item,
-          moderation_status: 'Rejected',
-          tools: item.tools.map(tool => (typeof tool === 'object' ? tool.id : tool)),
-          photo: null
-        };
+        
         switch (this.activeTab) {
-          case 0: // На модерации
+          case 0:
             endpoint = `/admin/recipe/pending/${item.id}/`;
-            await axios.put(endpoint, updatedRecipe);
             break;
-          case 1: // Одобрены
+          case 1:
             endpoint = `/admin/recipe/approved/${item.id}/`;
-            await axios.put(endpoint, updatedRecipe);
             break;
         }
+
+        await axios.patch(endpoint, {
+          moderation_status: 'Rejected'
+        });
         
         this.initialize();
       } catch (error) {
@@ -731,6 +760,8 @@ export default {
 
     close() {
       this.dialog = false
+      this.imageFile = null;
+      this.imagePreview = null;
       this.$nextTick(() => {
         this.editedItem = Object.assign({}, this.defaultItem)
         this.editedIndex = -1
@@ -739,6 +770,8 @@ export default {
 
     async save() {
       try {
+        this.isSaving = true;
+        
         const instructionObj = {};
         this.editedItem.instruction.forEach((step, index) => {
           if (step.trim()) {
@@ -750,8 +783,6 @@ export default {
           .filter(ing => ing.ingredient && ing.quantity && ing.type)
           .map(ing => ({
             ingredient: typeof ing.ingredient === 'object' ? ing.ingredient.id : ing.ingredient,
-            name: typeof ing.ingredient === 'object' ? ing.ingredient.name : 
-                  this.availableIngredients.find(i => i.id === ing.ingredient)?.name || '',
             quantity: ing.quantity,
             type: ing.type
           }));
@@ -764,27 +795,33 @@ export default {
         });
 
         const userId = localStorage.getItem('userId');
+        
         const recipeData = {
           title: this.editedItem.title,
-          description: this.editedItem.description || null,
-          user: parseInt(userId) || 0,
-          instruction: instructionObj,
+          description: this.editedItem.description || '',
+          user: userId ? parseInt(userId) : 0,
           isEnabled: this.editedItem.isEnabled,
-          ingredients: processedIngredients,
-          tools: processedTools,
           is_alcoholic: this.editedItem.is_alcoholic,
           language: typeof this.editedItem.language === 'object' ? this.editedItem.language.value : this.editedItem.language,
           moderation_status: this.editedItem.moderation_status,
-          video_url: this.editedItem.video_url || null
+          video_url: this.editedItem.video_url || '',
+          instruction: instructionObj,
+          tools: processedTools,
+          ingredients: processedIngredients
         };
 
+        let response;
+        let recipeId;
+        let endpoint;
+
         if (!this.editedItem.id) {
-          // Создание нового рецепта (только на вкладке "Одобрены")
-          recipeData.moderation_status = 'Approved';
-          await axios.post('/admin/recipe/approved/', recipeData);
+          endpoint = '/admin/recipe/approved/';
+          response = await axios.post(endpoint, recipeData);
+          recipeId = response.data.id;
+          if (!recipeId) {
+            throw new Error('Не удалось получить ID созданного рецепта');
+          }
         } else {
-          // Редактирование существующего рецепта
-          let endpoint;
           switch (this.activeTab) {
             case 0:
               endpoint = `/admin/recipe/pending/${this.editedItem.id}/`;
@@ -798,14 +835,56 @@ export default {
             default:
               throw new Error('Неизвестный статус рецепта');
           }
-          await axios.put(endpoint, recipeData);
+          response = await axios.put(endpoint, recipeData);
+          recipeId = this.editedItem.id;
         }
-        
+
+        if (this.imageFile && recipeId) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          try {
+            const imageFormData = new FormData();
+            imageFormData.append('photo', this.imageFile, this.imageFile.name);
+
+            let imageEndpoint;
+            if (!this.editedItem.id) {
+              imageEndpoint = `/admin/recipe/approved/${recipeId}/`;
+            } else {
+              switch (this.activeTab) {
+                case 0:
+                  imageEndpoint = `/admin/recipe/pending/${recipeId}/`;
+                  break;
+                case 1:
+                  imageEndpoint = `/admin/recipe/approved/${recipeId}/`;
+                  break;
+                case 2:
+                  imageEndpoint = `/admin/recipe/rejected/${recipeId}/`;
+                  break;
+              }
+            }
+
+            await axios.patch(imageEndpoint, imageFormData, {
+              headers: {
+                'Content-Type': 'multipart/form-data'
+              }
+            });
+          } catch (imageError) {
+            console.error('Error uploading image:', imageError);
+            throw new Error('Error uploading image');
+          }
+        }
+
+        await this.initialize();
         this.close();
-        this.initialize();
       } catch (error) {
         console.error('Error saving recipe:', error);
-        console.error('Error details:', error.response ? error.response.data : 'No response data');
+        if (error.response && error.response.data) {
+          alert(`Error saving: ${JSON.stringify(error.response.data)}`);
+        } else {
+          alert(`Error saving: ${error.message}`);
+        }
+      } finally {
+        this.isSaving = false;
       }
     },
 
@@ -848,6 +927,32 @@ export default {
     handlePageChange(page) {
       this.currentPage = page;
       this.initialize();
+    },
+
+    showImage(imageUrl) {
+      if (imageUrl) {
+        this.selectedImage = imageUrl;
+        this.imageDialog = true;
+      }
+    },
+
+    handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        if (!file.type.startsWith('image/')) {
+          alert('Пожалуйста, выберите файл изображения');
+          return;
+        }
+        
+        this.imageFile = file;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.imagePreview = e.target.result;
+          this.showImage(e.target.result);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   }
 }

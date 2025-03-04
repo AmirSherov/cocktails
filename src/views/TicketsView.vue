@@ -110,11 +110,10 @@ export default {
       )
     })
 
-    const fetchTickets = async () => {
+    const fetchTickets = async (searchQuery = '') => {
       loading.value = true
       try {
-        const response = await axios.get('/admin/sup/')
-        console.log('Response data:', response.data)
+        const response = await axios.get(`/admin/sup/${searchQuery ? `?search=${searchQuery}` : ''}`)
         tickets.value = Array.isArray(response.data) ? response.data : response.data.results || []
         tickets.value = tickets.value.map(ticket => ({
           ...ticket,
@@ -134,31 +133,8 @@ export default {
       loading.value = false
     }
 
-    const handleSearch = async () => {
-      if (search.value) {
-        loading.value = true
-        try {
-          const response = await axios.get(`/admin/sup/?search=${search.value}`)
-          tickets.value = Array.isArray(response.data) ? response.data : response.data.results || []
-          tickets.value = tickets.value.map(ticket => ({
-            ...ticket,
-            created_at: new Date(ticket.created_at).toLocaleString('ru-RU'),
-            user: {
-              ...ticket.user,
-              email: ticket.user?.email || '',
-              phone: ticket.user?.phone || '',
-              id: ticket.user?.id
-            }
-          }))
-        } catch (error) {
-          console.error('Error searching tickets:', error)
-          toast.error('Ошибка при поиске')
-          tickets.value = []
-        }
-        loading.value = false
-      } else {
-        fetchTickets()
-      }
+    const handleSearch = () => {
+      fetchTickets(search.value)
     }
 
     const handleRowClick = (item) => {
@@ -195,13 +171,7 @@ export default {
     }
 
     const customFilter = (value, search, item) => {
-      if (item.description && item.description.toLowerCase().includes(search.toLowerCase())) {
-        return true
-      }
-      return value != null &&
-        search != null &&
-        typeof value === 'string' &&
-        value.toString().toLowerCase().indexOf(search.toLowerCase()) !== -1
+      return true // Отключаем локальную фильтрацию, так как используем серверный поиск
     }
 
     onMounted(() => {
