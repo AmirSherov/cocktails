@@ -25,64 +25,132 @@
         </div>
       </v-card-title>
 
-      <v-data-table
-        :headers="headers"
-        :items="users"
-        :search="search"
-        :loading="loading"
-        density="compact"
-        class="users-table"
+      <el-table
+        :data="users"
+        style="width: 100%"
+        v-loading="loading"
+        row-key="id"
+        :default-sort="{ prop: 'id', order: 'ascending' }"
+        @sort-change="handleSortChange"
       >
-        <template #[`item.avatar`]="{ item }">
-          <v-avatar size="32" style="cursor: pointer" @click="showAvatarPreview(item)">
-            <v-img :src="item.avatar || 'https://static.vecteezy.com/system/resources/previews/009/292/244/non_2x/default-avatar-icon-of-social-media-user-vector.jpg'" alt="avatar" />
-          </v-avatar>
-        </template>
-
-        <template #[`item.is_active`]="{ item }">
-          <v-chip
-            :color="item.is_active ? 'success' : 'error'"
-            size="x-small"
-            class="text-caption"
-          >
-            {{ item.is_active ? 'Активный' : 'Неактивный' }}
-          </v-chip>
-        </template>
-
-        <template #[`item.is_staff`]="{ item }">
-          <v-chip
-            :color="item.is_staff ? 'primary' : 'default'"
-            size="x-small"
-            class="text-caption"
-          >
-            {{ item.is_staff ? 'Менеджер' : 'Пользователь' }}
-          </v-chip>
-        </template>
-
-        <template #[`item.date_of_birth`]="{ item }">
-          {{ formatDate(item.date_of_birth) }}
-        </template>
-
-        <template #[`item.actions`]="{ item }">
-          <div class="d-flex">
-            <v-btn
-              icon="mdi-pencil"
-              color="primary"
+        <el-table-column
+          prop="id"
+          label="ID"
+          sortable
+          width="80"
+        />
+        <el-table-column
+          prop="avatar"
+          label="Аватар"
+          width="80"
+        >
+          <template #default="{ row }">
+            <v-avatar size="32" style="cursor: pointer" @click="showAvatarPreview(row)">
+              <v-img :src="row.avatar || 'https://static.vecteezy.com/system/resources/previews/009/292/244/non_2x/default-avatar-icon-of-social-media-user-vector.jpg'" alt="avatar" />
+            </v-avatar>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="first_name"
+          label="Имя"
+          sortable
+        />
+        <el-table-column
+          prop="last_name"
+          label="Фамилия"
+          sortable
+        />
+        <el-table-column
+          prop="email"
+          label="Email"
+          sortable
+        />
+        <el-table-column
+          prop="date_of_birth"
+          label="Дата рождения"
+          sortable
+        >
+          <template #default="{ row }">
+            {{ formatDate(row.date_of_birth) }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="gender"
+          label="Пол"
+          sortable
+        />
+        <el-table-column
+          prop="os"
+          label="ОС"
+          sortable
+        />
+        <el-table-column
+          prop="is_active"
+          label="Статус"
+          width="100"
+        >
+          <template #default="{ row }">
+            <v-chip
+              :color="row.is_active ? 'success' : 'error'"
               size="x-small"
-              variant="text"
-              class="mr-1"
-              @click="editUser(item)"
-            />
-            <v-btn
-              icon="mdi-delete"
-              color="error"
+              class="text-caption"
+            >
+              {{ row.is_active ? 'Активный' : 'Неактивный' }}
+            </v-chip>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="is_staff"
+          label="Роль"
+          width="100"
+        >
+          <template #default="{ row }">
+            <v-chip
+              :color="row.is_staff ? 'primary' : 'default'"
               size="x-small"
-              variant="text"
-              @click="deleteUser(item)"
-            />
-          </div>
-        </template>
-      </v-data-table>
+              class="text-caption"
+            >
+              {{ row.is_staff ? 'Менеджер' : 'Пользователь' }}
+            </v-chip>
+          </template>
+        </el-table-column>
+        <el-table-column
+          fixed="right"
+          label="Действия"
+          width="100"
+        >
+          <template #default="{ row }">
+            <div class="d-flex">
+              <v-btn
+                icon="mdi-pencil"
+                color="primary"
+                size="x-small"
+                variant="text"
+                class="mr-1"
+                @click="editUser(row)"
+              />
+              <v-btn
+                icon="mdi-delete"
+                color="error"
+                size="x-small"
+                variant="text"
+                @click="deleteUser(row)"
+              />
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="userPagination.currentPage"
+          :page-size="userPagination.pageSize"
+          :total="userPagination.total"
+          @current-change="handlePageChange"
+          layout="total, prev, pager, next"
+          :pager-count="7"
+        />
+      </div>
     </v-card>
 
     <v-dialog v-model="dialog" max-width="700px">
@@ -251,6 +319,7 @@ import { ref, onMounted, computed } from 'vue'
 import axios from '../plugins/axios'
 import { useToast } from 'vue-toastification'
 import { useRoute } from 'vue-router'
+import { debounce } from 'lodash'
 
 export default {
   name: 'UsersView',
@@ -319,19 +388,39 @@ export default {
       avatarFile: null
     }
 
+    const userPagination = ref({
+      currentPage: 1,
+      pageSize: 15,
+      total: 0,
+      sortBy: 'id',
+      sortOrder: 'ascending'
+    })
+
     const fetchUsers = async () => {
-      loading.value = true
       try {
-        const response = await axios.get('/admin/profile/')
-        users.value = Array.isArray(response.data) ? response.data : 
-                     response.data.results ? response.data.results : []
-        console.log(users.value)
+        loading.value = true;
+        const params = new URLSearchParams({
+          page: userPagination.value.currentPage.toString()
+        });
+
+        if (search.value) {
+          params.append('search', search.value);
+        }
+
+        if (userPagination.value.sortBy) {
+          const orderingPrefix = userPagination.value.sortOrder === 'descending' ? '-' : '';
+          params.append('ordering', orderingPrefix + userPagination.value.sortBy);
+        }
+
+        const response = await axios.get(`/admin/profile/?${params.toString()}`);
+        users.value = response.data.results || [];
+        userPagination.value.total = response.data.count || 0;
       } catch (error) {
-        console.error('Error fetching users:', error)
-        toast.error('Ошибка при загрузке пользователей')
-        users.value = []
+        console.error('Error fetching users:', error);
+        users.value = [];
+      } finally {
+        loading.value = false;
       }
-      loading.value = false
     }
 
     const fetchPermissions = async () => {
@@ -346,23 +435,14 @@ export default {
       }
     }
 
-    const handleSearch = async () => {
-      if (search.value) {
-        loading.value = true
-        try {
-          const response = await axios.get(`/admin/profile/?search=${search.value}`)
-          users.value = Array.isArray(response.data) ? response.data :
-                       response.data.results ? response.data.results : []
-        } catch (error) {
-          console.error('Error searching:', error)
-          toast.error('Ошибка при поиске')
-          users.value = []
-        }
-        loading.value = false
-      } else {
-        fetchUsers()
-      }
+    const handleSearch = (value) => {
+      userPagination.value.currentPage = 1;
+      debounceSearch(value);
     }
+
+    const debounceSearch = debounce((value) => {
+      fetchUsers();
+    }, 300);
 
     const handleAvatarChange = (event) => {
       avatarFile.value = event.target.files[0]
@@ -493,6 +573,19 @@ export default {
       }
     }
 
+    const handlePageChange = (page) => {
+      userPagination.value.currentPage = page;
+      fetchUsers();
+    }
+
+    const handleSortChange = ({ prop, order }) => {
+      if (!prop) return;
+      userPagination.value.sortBy = prop;
+      userPagination.value.sortOrder = order || 'ascending';
+      userPagination.value.currentPage = 1;
+      fetchUsers();
+    }
+
     onMounted(() => {
       if (route.query.search) {
         search.value = route.query.search
@@ -527,33 +620,29 @@ export default {
       dateMenu,
       formattedBirthday,
       formatDate,
-      handleStaffChange
+      handleStaffChange,
+      userPagination,
+      handlePageChange,
+      handleSortChange
     }
   }
 }
 </script>
 
-<style>
+<style scoped>
 .users-container {
-  padding: 0;
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  margin-left: -50px;
+  padding: 20px;
 }
 
 .users-card {
-  margin: 0;
-  border-radius: 0;
-  box-shadow: none;
+  height: 100%;
 }
 
 .users-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .users-title {
@@ -563,39 +652,19 @@ export default {
 
 .search-block {
   display: flex;
-  align-items: center;
   gap: 16px;
+  align-items: center;
 }
 
 .search-field {
   width: 300px;
 }
 
-.v-data-table {
-  font-size: 14px;
-}
-
-.v-data-table .v-data-table-header th {
-  white-space: nowrap;
-  font-weight: 600 !important;
-  background-color: #f5f5f5;
-}
-
-.v-data-table .v-data-table__wrapper {
-  overflow-x: auto;
-  margin: 0;
-  padding: 0;
-}
-
-.v-data-table .v-data-table__wrapper table {
-  min-width: 100%;
-  border-collapse: collapse;
-}
-
-.v-data-table .v-data-table__wrapper td {
-  height: 40px !important;
-  padding: 0 8px !important;
-  vertical-align: middle;
+.pagination-container {
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 .file-input-wrapper {
@@ -604,15 +673,9 @@ export default {
   gap: 8px;
 }
 
-.file-input-wrapper label {
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.6);
-}
-
 .file-input {
   padding: 8px;
-  border: 1px solid #ddd;
+  border: 1px solid #ccc;
   border-radius: 4px;
-  width: 100%;
 }
 </style> 

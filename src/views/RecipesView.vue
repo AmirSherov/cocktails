@@ -37,373 +37,448 @@
       </v-tabs>
 
       <div class="table-container">
-        <v-data-table
-          :headers="filteredHeaders"
-          :items="currentRecipes"
-          :search="search"
-          density="compact"
-          class="recipes-table"
-          :loading="loading"
+        <el-table
+          :data="currentRecipes"
+          style="width: 100%"
+          v-loading="loading"
+          row-key="id"
+          :default-sort="{ prop: 'id', order: 'ascending' }"
+          @sort-change="handleSortChange"
         >
-          <template #[`item.photo`]="{ item }">
-            <v-avatar size="32" style="cursor: pointer" @click="showImage(item.photo)">
-              <v-img :src="item.photo" contain class="grey lighten-2" />
-            </v-avatar>
-          </template>
+          <el-table-column
+            prop="id"
+            label="ID"
+            sortable
+            width="80"
+          />
+          <el-table-column
+            prop="photo"
+            label="Фото"
+            width="80"
+          >
+            <template #default="{ row }">
+              <v-avatar size="32" style="cursor: pointer" @click="showImage(row.photo)">
+                <v-img :src="row.photo" contain class="grey lighten-2" />
+              </v-avatar>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="language"
+            label="Язык"
+            sortable
+            width="100"
+          />
+          <el-table-column
+            prop="title"
+            label="Название"
+            sortable
+          />
+          <el-table-column
+            v-if="activeTab === 0"
+            prop="description"
+            label="Описание"
+            sortable
+            show-overflow-tooltip
+          />
+          <el-table-column
+            prop="isEnabled"
+            label="Доступен"
+            width="100"
+          >
+            <template #default="{ row }">
+              <v-chip
+                :color="row.isEnabled ? 'success' : 'error'"
+                size="x-small"
+                class="text-caption"
+              >
+                {{ row.isEnabled ? 'Активный' : 'Неактивный' }}
+              </v-chip>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="is_alcoholic"
+            label="Алкогольный"
+            sortable
+            width="100"
+          >
+            <template #default="{ row }">
+              <v-chip
+                :color="row.is_alcoholic ? 'warning' : 'info'"
+                size="x-small"
+                class="text-caption"
+              >
+                {{ row.is_alcoholic ? 'Алкогольный' : 'Безалкогольный' }}
+              </v-chip>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="user"
+            label="Создатель"
+            width="100"
+          />
+          <el-table-column
+            v-if="activeTab !== 0"
+            prop="favorites_count"
+            label="Избранное"
+            sortable
+            width="100"
+          />
+          <el-table-column
+            v-if="activeTab !== 0"
+            prop="video_url"
+            label="Видео URL"
+            sortable
+            show-overflow-tooltip
+          />
+          <el-table-column
+            prop="tools"
+            label="Инструменты"
+            show-overflow-tooltip
+          >
+            <template #default="{ row }">
+              <div class="tools-list">
+                {{ row.tools.map(tool => {
+                  if (typeof tool === 'object' && tool.name) {
+                    return tool.name;
+                  } else {
+                    const foundTool = availableTools.find(t => t.id === tool);
+                    return foundTool ? foundTool.name : tool;
+                  }
+                }).join(', ') }}
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            prop="ingredients"
+            label="Ингредиенты"
+            show-overflow-tooltip
+          >
+            <template #default="{ row }">
+              <div class="ingredients-list">
+                {{ row.ingredients.map(ing => {
+                  const ingredientName = ing.name || 
+                    (ing.ingredient && typeof ing.ingredient === 'object' ? 
+                      ing.ingredient.name : 
+                      availableIngredients.find(i => i.id === ing.ingredient)?.name || ing.ingredient);
+                  return `${ingredientName} (${ing.quantity} ${ing.type})`;
+                }).join(', ') }}
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column
+            fixed="right"
+            label="Действия"
+            width="150"
+          >
+            <template #default="{ row }">
+              <div class="d-flex">
+                <template v-if="activeTab === 0">
+                  <v-btn
+                    icon="mdi-check"
+                    color="success"
+                    size="x-small"
+                    variant="text"
+                    class="mr-1"
+                    @click="approveRecipe(row)"
+                  />
+                  <v-btn
+                    icon="mdi-close"
+                    color="error"
+                    size="x-small"
+                    variant="text"
+                    class="mr-1"
+                    @click="rejectRecipe(row)"
+                  />
+                  <v-btn
+                    icon="mdi-pencil"
+                    color="primary"
+                    size="x-small"
+                    variant="text"
+                    @click="editRecipe(row)"
+                  />
+                </template>
 
-          <template #[`item.isEnabled`]="{ item }">
-            <v-chip
-              :color="item.isEnabled ? 'success' : 'error'"
-              size="x-small"
-              class="text-caption"
-            >
-              {{ item.isEnabled ? 'Активный' : 'Неактивный' }}
-            </v-chip>
-          </template>
+                <template v-if="activeTab === 1">
+                  <v-btn
+                    icon="mdi-close"
+                    color="error"
+                    size="x-small"
+                    variant="text"
+                    class="mr-1"
+                    @click="rejectRecipe(row)"
+                  />
+                  <v-btn
+                    icon="mdi-pencil"
+                    color="primary"
+                    size="x-small"
+                    variant="text"
+                    class="mr-1"
+                    @click="editRecipe(row)"
+                  />
+                  <v-btn
+                    icon="mdi-delete"
+                    color="error"
+                    size="x-small"
+                    variant="text"
+                    @click="deleteRecipe(row)"
+                  />
+                </template>
 
-          <template #[`item.is_alcoholic`]="{ item }">
-            <v-chip
-              :color="item.is_alcoholic ? 'warning' : 'info'"
-              size="x-small"
-              class="text-caption"
-            >
-              {{ item.is_alcoholic ? 'Алкогольный' : 'Безалкогольный' }}
-            </v-chip>
-          </template>
-
-          <template #[`item.tools`]="{ item }">
-            <div class="tools-list">
-              {{ item.tools.map(tool => {
-                if (typeof tool === 'object' && tool.name) {
-                  return tool.name;
-                } else {
-                  const foundTool = availableTools.find(t => t.id === tool);
-                  return foundTool ? foundTool.name : tool;
-                }
-              }).join(', ') }}
-            </div>
-          </template>
-
-          <template #[`item.ingredients`]="{ item }">
-            <div class="ingredients-list">
-              {{ item.ingredients.map(ing => {
-                const ingredientName = ing.name || 
-                  (ing.ingredient && typeof ing.ingredient === 'object' ? 
-                    ing.ingredient.name : 
-                    availableIngredients.find(i => i.id === ing.ingredient)?.name || ing.ingredient);
-                return `${ingredientName} (${ing.quantity} ${ing.type})`;
-              }).join(', ') }}
-            </div>
-          </template>
-
-          <template #[`item.actions`]="{ item }">
-            <div class="d-flex">
-              <template v-if="activeTab === 0">
-                <v-btn
-                  icon="mdi-check"
-                  color="success"
-                  size="x-small"
-                  variant="text"
-                  class="mr-1"
-                  @click="approveRecipe(item)"
-                />
-                <v-btn
-                  icon="mdi-close"
-                  color="error"
-                  size="x-small"
-                  variant="text"
-                  class="mr-1"
-                  @click="rejectRecipe(item)"
-                />
-                <v-btn
-                  icon="mdi-pencil"
-                  color="primary"
-                  size="x-small"
-                  variant="text"
-                  @click="editRecipe(item)"
-                />
-              </template>
-
-              <template v-if="activeTab === 1">
-                <v-btn
-                  icon="mdi-close"
-                  color="error"
-                  size="x-small"
-                  variant="text"
-                  class="mr-1"
-                  @click="rejectRecipe(item)"
-                />
-                <v-btn
-                  icon="mdi-pencil"
-                  color="primary"
-                  size="x-small"
-                  variant="text"
-                  class="mr-1"
-                  @click="editRecipe(item)"
-                />
-                <v-btn
-                  icon="mdi-delete"
-                  color="error"
-                  size="x-small"
-                  variant="text"
-                  @click="deleteRecipe(item)"
-                />
-              </template>
-
-              <template v-if="activeTab === 2">
-                <v-btn
-                  icon="mdi-check"
-                  color="success"
-                  size="x-small"
-                  variant="text"
-                  class="mr-1"
-                  @click="approveRecipe(item)"
-                />
-                <v-btn
-                  icon="mdi-pencil"
-                  color="primary"
-                  size="x-small"
-                  variant="text"
-                  @click="editRecipe(item)"
-                />
-              </template>
-            </div>
-          </template>
-        </v-data-table>
-            </div>
+                <template v-if="activeTab === 2">
+                  <v-btn
+                    icon="mdi-check"
+                    color="success"
+                    size="x-small"
+                    variant="text"
+                    class="mr-1"
+                    @click="approveRecipe(row)"
+                  />
+                  <v-btn
+                    icon="mdi-pencil"
+                    color="primary"
+                    size="x-small"
+                    variant="text"
+                    @click="editRecipe(row)"
+                  />
+                </template>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
 
       <div class="pagination-container">
         <el-pagination
-          v-model:current-page="currentPage"
-          :page-size="15"
-          :total="totalItems"
+          v-model:current-page="recipePagination.currentPage"
+          :page-size="recipePagination.pageSize"
+          :total="recipePagination.total"
           @current-change="handlePageChange"
           layout="total, prev, pager, next"
           :pager-count="7"
         />
-            </div>
+      </div>
     </v-card>
 
-      <!-- Диалог редактирования/создания рецепта -->
-      <v-dialog v-model="dialog" max-width="1200px" persistent>
-        <v-card>
-          <v-overlay v-model="isSaving" class="align-center justify-center">
-            <v-progress-circular
-              indeterminate
-              size="64"
-            ></v-progress-circular>
-            <div class="text-center mt-2">Сохранение рецепта...</div>
-          </v-overlay>
-          <v-card-title class="bg-primary text-white pa-4">
-            <span>{{ formTitle }}</span>
-          </v-card-title>
+    <!-- Диалог редактирования/создания рецепта -->
+    <v-dialog v-model="dialog" max-width="1200px" persistent>
+      <v-card>
+        <v-overlay v-model="isSaving" class="align-center justify-center">
+          <v-progress-circular
+            indeterminate
+            size="64"
+          ></v-progress-circular>
+          <div class="text-center mt-2">Сохранение рецепта...</div>
+        </v-overlay>
+        <v-card-title class="bg-primary text-white pa-4">
+          <span>{{ formTitle }}</span>
+        </v-card-title>
 
-          <v-card-text class="pa-4">
-            <v-form ref="form">
-                <v-row>
-                  <v-col cols="12" sm="6">
-                    <v-text-field
-                      v-model="editedItem.title"
-                      label="Название"
-                    required
+        <v-card-text class="pa-4">
+          <v-form ref="form">
+              <v-row>
+                <v-col cols="12" sm="6">
+                  <v-text-field
+                    v-model="editedItem.title"
+                    label="Название"
+                  required
+                  density="comfortable"
+                />
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <v-select
+                    v-model="editedItem.language"
+                  :items="[
+                    { title: 'Русский', value: 'RU' },
+                    { title: 'Английский', value: 'ENG' }
+                  ]"
+                  item-title="title"
+                    item-value="value"
+                    label="Язык"
+                  density="comfortable"
+                />
+                </v-col>
+                <v-col cols="12">
+                  <v-textarea
+                    v-model="editedItem.description"
+                    label="Описание"
                     density="comfortable"
                   />
-                  </v-col>
-                  <v-col cols="12" sm="6">
-                    <v-select
-                      v-model="editedItem.language"
-                    :items="[
-                      { title: 'Русский', value: 'RU' },
-                      { title: 'Английский', value: 'ENG' }
-                    ]"
-                    item-title="title"
-                      item-value="value"
-                      label="Язык"
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <v-text-field
+                    v-model="editedItem.video_url"
+                    label="Ссылка на видео"
                     density="comfortable"
                   />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-textarea
-                      v-model="editedItem.description"
-                      label="Описание"
-                      density="comfortable"
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <div class="d-flex flex-column">
+                    <label for="image-upload" class="mb-2">Изображение рецепта</label>
+                    <input
+                      id="image-upload"
+                      type="file"
+                      accept="image/*"
+                      @change="handleImageUpload"
+                      class="mb-2"
                     />
-                  </v-col>
-                  <v-col cols="12" sm="6">
-                    <v-text-field
-                      v-model="editedItem.video_url"
-                      label="Ссылка на видео"
-                      density="comfortable"
+                    <img
+                      v-if="imagePreview || (editedIndex !== -1 && editedItem.photo)"
+                      :src="imagePreview || editedItem.photo"
+                      alt="Preview"
+                      style="max-width: 200px; max-height: 200px; cursor: pointer;"
+                      @click="showImage(imagePreview || editedItem.photo)"
                     />
-                  </v-col>
-                  <v-col cols="12" sm="6">
-                    <div class="d-flex flex-column">
-                      <label for="image-upload" class="mb-2">Изображение рецепта</label>
-                      <input
-                        id="image-upload"
-                        type="file"
-                        accept="image/*"
-                        @change="handleImageUpload"
-                        class="mb-2"
-                      />
-                      <img
-                        v-if="imagePreview || (editedIndex !== -1 && editedItem.photo)"
-                        :src="imagePreview || editedItem.photo"
-                        alt="Preview"
-                        style="max-width: 200px; max-height: 200px; cursor: pointer;"
-                        @click="showImage(imagePreview || editedItem.photo)"
-                      />
-                    </div>
-                  </v-col>
-                  <v-col cols="12" sm="3">
-                    <v-switch
-                      v-model="editedItem.isEnabled"
-                      label="Доступен"
-                    color="success"
-                  />
-                  </v-col>
-                  <v-col cols="12" sm="3">
-                    <v-switch
-                      v-model="editedItem.is_alcoholic"
-                      label="Алкогольный"
-                    color="warning"
-                  />
-                  </v-col>
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="3">
+                  <v-switch
+                    v-model="editedItem.isEnabled"
+                    label="Доступен"
+                  color="success"
+                />
+                </v-col>
+                <v-col cols="12" sm="3">
+                  <v-switch
+                    v-model="editedItem.is_alcoholic"
+                    label="Алкогольный"
+                  color="warning"
+                />
+                </v-col>
 
-                  <!-- Инструкция -->
-                  <v-col cols="12">
-                  <v-card outlined class="pa-4">
-                      <v-card-title>Инструкция</v-card-title>
-                      <v-card-text>
-                      <div v-for="(step, index) in editedItem.instruction" :key="index" class="d-flex align-center mb-2">
-                              <v-text-field
-                                v-model="editedItem.instruction[index]"
-                                :label="`Шаг ${index + 1}`"
-                        density="comfortable"
-                        class="flex-grow-1 mr-2"
-                      />
-                              <v-btn
-                        icon="mdi-delete"
-                        color="error"
-                        size="small"
-                        variant="text"
-                              @click="removeInstructionStep(index)"
-                      />
-                            </div>
+                <!-- Инструкция -->
+                <v-col cols="12">
+                <v-card outlined class="pa-4">
+                    <v-card-title>Инструкция</v-card-title>
+                    <v-card-text>
+                    <div v-for="(step, index) in editedItem.instruction" :key="index" class="d-flex align-center mb-2">
+                            <v-text-field
+                              v-model="editedItem.instruction[index]"
+                              :label="`Шаг ${index + 1}`"
+                      density="comfortable"
+                      class="flex-grow-1 mr-2"
+                    />
                             <v-btn
+                      icon="mdi-delete"
+                      color="error"
+                      size="small"
+                      variant="text"
+                            @click="removeInstructionStep(index)"
+                    />
+                          </div>
+                          <v-btn
+                            color="primary"
+                          variant="text"
+                          prepend-icon="mdi-plus"
+                            @click="addInstructionStep"
+                          class="mt-2"
+                          >
+                            Добавить шаг
+                          </v-btn>
+                        </v-card-text>
+                      </v-card>
+                    </v-col>
+
+                    <!-- Инструменты -->
+                    <v-col cols="12">
+                    <v-card outlined class="pa-4">
+                        <v-card-title>Инструменты</v-card-title>
+                        <v-card-text>
+                          <v-autocomplete
+                          v-model="editedItem.tools"
+                            :items="availableTools"
+                          item-title="name"
+                            item-value="id"
+                            label="Добавить инструмент"
+                          density="comfortable"
+                          multiple
+                          chips
+                            @change="addTool"
+                        />
+                        <v-chip-group>
+                            <v-chip
+                              v-for="toolId in editedItem.tools"
+                              :key="toolId"
+                            closable
+                              @click:close="removeTool(toolId)"
+                            >
+                              {{ typeof toolId === 'object' ? toolId.name : (availableTools.find(t => t.id === toolId)?.name || toolId) }}
+                            </v-chip>
+                          </v-chip-group>
+                        </v-card-text>
+                      </v-card>
+                    </v-col>
+
+                    <!-- Ингредиенты -->
+                    <v-col cols="12">
+                    <v-card outlined class="pa-4">
+                        <v-card-title>Ингредиенты</v-card-title>
+                        <v-card-text>
+                        <div v-for="(ingredient, index) in editedItem.ingredients" :key="index" class="d-flex align-center mb-2">
+                              <v-autocomplete
+                                v-model="ingredient.ingredient"
+                                :items="availableIngredients"
+                            item-title="name"
+                                item-value="id"
+                                label="Ингредиент"
+                            density="comfortable"
+                                class="mr-2"
+                              />
+                                <v-select
+                                  v-model="ingredient.type"
+                                  :items="measureTypes"
+                                  label="Мера"
+                              density="comfortable"
+                                class="mr-2"
+                              />
+                                <v-text-field
+                                  v-model="ingredient.quantity"
+                                  label="Количество"
+                              density="comfortable"
+                                class="mr-2"
+                              />
+                                <v-btn
+                              icon="mdi-delete"
+                              color="error"
+                              size="small"
+                              variant="text"
+                                  @click="removeIngredient(index)"
+                                />
+                              </div>
+                                <v-btn
                               color="primary"
                             variant="text"
-                            prepend-icon="mdi-plus"
-                              @click="addInstructionStep"
-                            class="mt-2"
-                            >
-                              Добавить шаг
-                            </v-btn>
-                          </v-card-text>
-                        </v-card>
-                      </v-col>
-
-                      <!-- Инструменты -->
-                      <v-col cols="12">
-                      <v-card outlined class="pa-4">
-                          <v-card-title>Инструменты</v-card-title>
-                          <v-card-text>
-                            <v-autocomplete
-                            v-model="editedItem.tools"
-                              :items="availableTools"
-                            item-title="name"
-                              item-value="id"
-                              label="Добавить инструмент"
-                            density="comfortable"
-                            multiple
-                            chips
-                              @change="addTool"
-                          />
-                          <v-chip-group>
-                              <v-chip
-                                v-for="toolId in editedItem.tools"
-                                :key="toolId"
-                              closable
-                                @click:close="removeTool(toolId)"
+                              prepend-icon="mdi-plus"
+                                @click="addIngredient"
+                              class="mt-2"
                               >
-                                {{ typeof toolId === 'object' ? toolId.name : (availableTools.find(t => t.id === toolId)?.name || toolId) }}
-                              </v-chip>
-                            </v-chip-group>
-                          </v-card-text>
-                        </v-card>
-                      </v-col>
+                                Добавить ингредиент
+                              </v-btn>
+                            </v-card-text>
+                          </v-card>
+                        </v-col>
+                      </v-row>
+              </v-form>
+              </v-card-text>
 
-                      <!-- Ингредиенты -->
-                      <v-col cols="12">
-                      <v-card outlined class="pa-4">
-                          <v-card-title>Ингредиенты</v-card-title>
-                          <v-card-text>
-                          <div v-for="(ingredient, index) in editedItem.ingredients" :key="index" class="d-flex align-center mb-2">
-                                <v-autocomplete
-                                  v-model="ingredient.ingredient"
-                                  :items="availableIngredients"
-                              item-title="name"
-                                  item-value="id"
-                                  label="Ингредиент"
-                              density="comfortable"
-                                  class="mr-2"
-                                />
-                                  <v-select
-                                    v-model="ingredient.type"
-                                    :items="measureTypes"
-                                    label="Мера"
-                                density="comfortable"
-                                  class="mr-2"
-                                />
-                                  <v-text-field
-                                    v-model="ingredient.quantity"
-                                    label="Количество"
-                                density="comfortable"
-                                  class="mr-2"
-                                />
-                                  <v-btn
-                                icon="mdi-delete"
-                                color="error"
-                                size="small"
-                                variant="text"
-                                    @click="removeIngredient(index)"
-                                  />
-                                </div>
-                                  <v-btn
-                                color="primary"
-                              variant="text"
-                                prepend-icon="mdi-plus"
-                                  @click="addIngredient"
-                                class="mt-2"
-                                >
-                                  Добавить ингредиент
-                                </v-btn>
-                              </v-card-text>
-                            </v-card>
-                          </v-col>
-                        </v-row>
-                </v-form>
-                </v-card-text>
-
-              <v-card-actions class="pa-4">
-                <v-spacer />
-                  <v-btn
-                  color="grey"
-                  variant="text"
-                    @click="close"
-                  >
-                    Отмена
-                  </v-btn>
-                  <v-btn
-                    color="primary"
-                    @click="save"
-                  class="ml-2"
-                  >
-                    Сохранить
-                  </v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-dialog>
+            <v-card-actions class="pa-4">
+              <v-spacer />
+                <v-btn
+                color="grey"
+                variant="text"
+                  @click="close"
+                >
+                  Отмена
+                </v-btn>
+                <v-btn
+                  color="primary"
+                  @click="save"
+                class="ml-2"
+                >
+                  Сохранить
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
 
     <!-- Диалог для просмотра изображения -->
     <v-dialog v-model="imageDialog" max-width="800px">
@@ -437,19 +512,13 @@ export default {
     search: '',
     dialog: false,
     isSaving: false,
-    headers: [
-      { title: 'ID', key: 'id', sortable: true, width: '30px' },
-      { title: 'Фото', key: 'photo', sortable: false, width: '30px' },
-      { title: 'Язык', key: 'language', sortable: true, width: '30px' },
-      { title: 'Название', key: 'title', sortable: true, width: '120px' },
-      { title: 'Описание', key: 'description', sortable: false, show: [0], width: '120px' },
-      { title: 'Доступен', key: 'isEnabled', sortable: false, width: '30px' },
-      { title: 'Алкогольный', key: 'is_alcoholic', sortable: true, width: '30px' },
-      { title: 'Создатель', key: 'user', sortable: false, width: '30px' },
-      { title: 'Избранное', key: 'favorites_count', sortable: true, width: '30px', show: [1, 2] },
-      { title: 'Видео URL', key: 'video_url', sortable: true, show: [1, 2], width: '70px' },
-      { title: 'Действия', key: 'actions', sortable: false, width: '85px' }
-    ],
+    recipePagination: {
+      currentPage: 1,
+      pageSize: 15,
+      total: 0,
+      sortBy: 'id',
+      sortOrder: 'ascending'
+    },
     pendingRecipes: [],
     approvedRecipes: [],
     rejectedRecipes: [],
@@ -506,11 +575,7 @@ export default {
       'circle',
       'bottle'
     ],
-    sortBy: ['title'],
-    sortDesc: [false],
     loading: false,
-    currentPage: 1,
-    totalItems: 0,
     imageFile: null,
     imagePreview: null,
     imageDialog: false,
@@ -558,7 +623,7 @@ export default {
     },
     activeTab: {
       handler(newVal) {
-        this.page = 1;
+        this.recipePagination.currentPage = 1;
         this.search = '';
         this.initialize();
       }
@@ -596,9 +661,9 @@ export default {
             this.pendingRecipes = this.processRecipes(response.data);
             break;
           case 1:
-            response = await axios.get(`/admin/recipe/approved/?page=${this.currentPage}&search=${query || ''}`);
+            response = await axios.get(`/admin/recipe/approved/?page=${this.recipePagination.currentPage}&search=${query || ''}`);
             this.approvedRecipes = this.processRecipes(response.data);
-            this.totalItems = response.data.count || 0;
+            this.recipePagination.total = response.data.count || 0;
             break;
           case 2:
             response = await axios.get(`/admin/recipe/rejected/?search=${query || ''}`);
@@ -615,19 +680,43 @@ export default {
     async initialize() {
       try {
         this.loading = true;
-        let response;
+        const params = new URLSearchParams({
+          page: this.recipePagination.currentPage.toString()
+        });
+
+        if (this.search) {
+          params.append('search', this.search);
+        }
+
+        if (this.recipePagination.sortBy) {
+          const orderingPrefix = this.recipePagination.sortOrder === 'descending' ? '-' : '';
+          params.append('ordering', orderingPrefix + this.recipePagination.sortBy);
+        }
+
+        let endpoint = '';
         switch (this.activeTab) {
           case 0:
-            response = await axios.get(`/admin/recipe/pending/?search=${this.search || ''}`);
+            endpoint = '/admin/recipe/pending/';
+            break;
+          case 1:
+            endpoint = '/admin/recipe/approved/';
+            break;
+          case 2:
+            endpoint = '/admin/recipe/rejected/';
+            break;
+        }
+
+        const response = await axios.get(`${endpoint}?${params.toString()}`);
+        
+        switch (this.activeTab) {
+          case 0:
             this.pendingRecipes = this.processRecipes(response.data);
             break;
           case 1:
-            response = await axios.get(`/admin/recipe/approved/?page=${this.currentPage}&search=${this.search || ''}`);
             this.approvedRecipes = this.processRecipes(response.data);
-            this.totalItems = response.data.count || 0;
+            this.recipePagination.total = response.data.count || 0;
             break;
           case 2:
-            response = await axios.get(`/admin/recipe/rejected/?search=${this.search || ''}`);
             this.rejectedRecipes = this.processRecipes(response.data);
             break;
         }
@@ -925,7 +1014,15 @@ export default {
     },
 
     handlePageChange(page) {
-      this.currentPage = page;
+      this.recipePagination.currentPage = page;
+      this.initialize();
+    },
+
+    handleSortChange({ prop, order }) {
+      if (!prop) return;
+      this.recipePagination.sortBy = prop;
+      this.recipePagination.sortOrder = order || 'ascending';
+      this.recipePagination.currentPage = 1;
       this.initialize();
     },
 
@@ -953,7 +1050,7 @@ export default {
         };
         reader.readAsDataURL(file);
       }
-    }
+    },
   }
 }
 </script>
