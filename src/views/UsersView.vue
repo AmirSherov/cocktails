@@ -61,6 +61,7 @@
           sortable
         />
         <el-table-column
+          width="150"
           prop="email"
           label="Email"
           sortable
@@ -88,6 +89,7 @@
           prop="is_active"
           label="Статус"
           width="100"
+          sortable
         >
           <template #default="{ row }">
             <v-chip
@@ -102,7 +104,8 @@
         <el-table-column
           prop="is_staff"
           label="Роль"
-          width="100"
+          width="120"
+          sortable
         >
           <template #default="{ row }">
             <v-chip
@@ -293,8 +296,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
-    <!-- Диалог для предпросмотра аватара -->
     <v-dialog v-model="avatarPreviewDialog" max-width="500px">
       <v-card>
         <v-card-title class="d-flex justify-space-between align-center pa-4">
@@ -346,15 +347,15 @@ export default {
 
     const headers = [
       { title: 'ID', key: 'id', width: '50px' },
-      { title: 'Аватар', key: 'avatar', width: '60px', sortable: false },
+      { title: 'Аватар', key: 'avatar', width: '30px', sortable: false },
       { title: 'Имя', key: 'first_name', width: '120px' },
       { title: 'Фамилия', key: 'last_name', width: '120px' },
-      { title: 'Email', key: 'email' },
+      { title: 'Email', key: 'email', width: '150px' },
       { title: 'Дата рождения', key: 'date_of_birth', width: '120px' },
       { title: 'Пол', key: 'gender', width: '100px' },
       { title: 'ОС', key: 'os', width: '100px' },
       { title: 'Статус', key: 'is_active', width: '100px' },
-      { title: 'Роль', key: 'is_staff', width: '100px' },
+      { title: 'Роль', key: 'is_staff', width: '120px' },
       { title: 'Действия', key: 'actions', width: '100px', sortable: false }
     ]
 
@@ -568,7 +569,6 @@ export default {
 
     const handleStaffChange = (value) => {
       if (!value) {
-        // Если пользователь больше не менеджер, очищаем все разрешения
         editedItem.value.user_permissions = []
       }
     }

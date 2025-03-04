@@ -313,6 +313,17 @@
             :loading="loadingHistory"
             class="history-table"
           >
+            <template #[`item.user`]="{ item }">
+              <v-btn
+                text
+                color="primary"
+                variant="text"
+                :to="{ name: 'users', query: { search: item.user }}"
+                class="pa-0"
+              >
+                {{ item.user }}
+              </v-btn>
+            </template>
             <template #[`item.purchased_at`]="{ item }">
               {{ formatDate(item.purchased_at) }}
             </template>

@@ -41,9 +41,20 @@
           :search="search"
           :loading="loading"
         >
-          <template v-slot:item.actions="{ item }">
+          <template #[`item.id`]="{ item }">
+            <v-btn
+              text
+              color="primary"
+              variant="text"
+              :to="{ name: 'users', query: { search: item.id }}"
+              class="pa-0"
+            >
+              {{ item.id }}
+            </v-btn>
+          </template>
+          <template #[`item.actions`]="{ item }">
             <v-tooltip bottom>
-              <template v-slot:activator="{ on, attrs }">
+              <template #activator="{ on, attrs }">
                 <v-btn
                   density="compact"
                   size="24"
@@ -61,7 +72,7 @@
             </v-tooltip>
 
             <v-tooltip bottom>
-              <template v-slot:activator="{ on, attrs }">
+              <template #activator="{ on, attrs }">
                 <v-btn
                   density="compact"
                   size="24"
@@ -156,12 +167,23 @@
             :items="selectedUser?.points || []"
             :loading="false"
           >
-            <template v-slot:item.charge="{ item }">
+            <template #[`item.user`]="{ item }">
+              <v-btn
+                text
+                color="primary"
+                variant="text"
+                :to="{ name: 'users', query: { search: item.user }}"
+                class="pa-0"
+              >
+                {{ item.user }}
+              </v-btn>
+            </template>
+            <template #[`item.charge`]="{ item }">
               <v-chip :color="item.charge ? 'error' : 'success'" text-color="white">
                 {{ item.charge ? 'Списание' : 'Начисление' }}
               </v-chip>
             </template>
-            <template v-slot:item.created_at="{ item }">
+            <template #[`item.created_at`]="{ item }">
               {{ new Date(item.created_at).toLocaleString('ru-RU') }}
             </template>
           </v-data-table>
