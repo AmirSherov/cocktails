@@ -115,7 +115,19 @@
             prop="user"
             label="Создатель"
             width="100"
-          />
+          >
+            <template #default="{ row }">
+              <v-btn
+                text
+                color="primary"
+                variant="text"
+                :to="{ name: 'users', query: { search: row.user }}"
+                class="pa-0"
+              >
+                {{ row.user }}
+              </v-btn>
+            </template>
+          </el-table-column>
           <el-table-column
             v-if="activeTab !== 0"
             prop="favorites_count"

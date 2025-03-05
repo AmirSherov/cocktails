@@ -101,7 +101,7 @@ export default {
       }
 
       const baseUrl = 'wss://api.mrbarmister.pro'
-      const wsUrl = `${baseUrl}/wss/support/?user_id=${this.currentUserId}&ticket_id=${this.ticket.id}`
+      const wsUrl = `${baseUrl}/ws/support/?user_id=${this.currentUserId}&ticket_id=${this.ticket.id}`
       
       try {
         this.socket = new WebSocket(wsUrl)

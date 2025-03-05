@@ -39,10 +39,11 @@ export default {
 <template>
   <v-app>
     <v-navigation-drawer
+      v-if="$route.name !== 'login'"
       v-model="drawer"
       permanent
     >
-        <div class="text-h6 font-weight-bold primary--text">Админ-панель</div>
+      <div class="text-h6 font-weight-bold primary--text">Админ-панель</div>
 
       <v-list class="pa-2">
         <v-list-item
@@ -87,7 +88,7 @@ export default {
     </v-navigation-drawer>
 
     <v-app-bar
-      v-if="authStore.isAuthenticated"
+      v-if="$route.name !== 'login'"
       app
       color="white"
       elevation="1"
