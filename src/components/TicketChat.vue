@@ -100,8 +100,8 @@ export default {
         return
       }
 
-      const baseUrl = 'ws://109.71.246.251:8000'
-      const wsUrl = `${baseUrl}/ws/support/?user_id=${this.currentUserId}&ticket_id=${this.ticket.id}`
+      const baseUrl = 'wss://109.71.246.251:8000'
+      const wsUrl = `${baseUrl}/wss/support/?user_id=${this.currentUserId}&ticket_id=${this.ticket.id}`
       
       try {
         this.socket = new WebSocket(wsUrl)
