@@ -1,14 +1,16 @@
 <template>
-  <v-container>
+  <v-container fluid class="pa-4">
     <v-row>
       <v-col cols="12">
-        <h1 class="text-h4 mb-12">Статистика</h1>
+        <h1 class="text-h4 mb-6">Статистика</h1>
+        <v-divider class="mb-6"></v-divider>
       </v-col>
     </v-row>
 
-    <v-row>
-      <v-col cols="12" lg="8" offset-lg="2">
-        <v-card class="stat-card mb-10" elevation="2" min-width="100%">
+    <v-row justify="center">
+      <v-col cols="12" xl="10" lg="11">
+        <!-- Рецепты -->
+        <v-card class="stat-card mb-6" elevation="2">
           <v-card-item>
             <template v-slot:prepend>
               <v-icon
@@ -19,26 +21,62 @@
                 mdi-book-open-page-variant
               </v-icon>
             </template>
-            <v-card-title>Всего рецептов</v-card-title>
+            <v-card-title>Рецепты</v-card-title>
           </v-card-item>
           <v-card-text>
-            <div class="text-h4 font-weight-bold mb-2">
-              {{ statistics.total_recipes || 0 }}
+            <div class="d-flex align-center justify-space-between mb-4">
+              <div>
+                <div class="text-h3 font-weight-bold mb-1">
+                  {{ statistics.total_recipes || 0 }}
+                </div>
+                <div class="text-subtitle-1 text-medium-emphasis">
+                  Всего рецептов
+                </div>
+              </div>
+              <v-chip
+                color="primary"
+                size="large"
+                class="stat-chip"
+              >
+                100%
+              </v-chip>
             </div>
+            <v-divider class="mb-4"></v-divider>
             <v-row class="stat-details">
               <v-col cols="6">
-                <div class="text-subtitle-2 text-medium-emphasis">На русском</div>
-                <div class="text-h6">{{ statistics.rus_recipes || 0 }}</div>
+                <div class="d-flex align-center justify-space-between">
+                  <div>
+                    <div class="text-h5 mb-1">{{ statistics.rus_recipes || 0 }}</div>
+                    <div class="text-subtitle-2 text-medium-emphasis">На русском</div>
+                  </div>
+                  <v-chip
+                    color="info"
+                    size="small"
+                  >
+                    {{ getRussianRecipesPercentage }}%
+                  </v-chip>
+                </div>
               </v-col>
               <v-col cols="6">
-                <div class="text-subtitle-2 text-medium-emphasis">На английском</div>
-                <div class="text-h6">{{ statistics.eng_recipes || 0 }}</div>
+                <div class="d-flex align-center justify-space-between">
+                  <div>
+                    <div class="text-h5 mb-1">{{ statistics.eng_recipes || 0 }}</div>
+                    <div class="text-subtitle-2 text-medium-emphasis">На английском</div>
+                  </div>
+                  <v-chip
+                    color="info"
+                    size="small"
+                  >
+                    {{ getEnglishRecipesPercentage }}%
+                  </v-chip>
+                </div>
               </v-col>
             </v-row>
           </v-card-text>
         </v-card>
 
-        <v-card class="stat-card mb-6" elevation="2" min-width="100%">
+        <!-- Пользователи -->
+        <v-card class="stat-card mb-6" elevation="2">
           <v-card-item>
             <template v-slot:prepend>
               <v-icon
@@ -49,26 +87,62 @@
                 mdi-account-group
               </v-icon>
             </template>
-            <v-card-title>Всего пользователей</v-card-title>
+            <v-card-title>Пользователи</v-card-title>
           </v-card-item>
           <v-card-text>
-            <div class="text-h4 font-weight-bold mb-2">
-              {{ statistics.total_users || 0 }}
+            <div class="d-flex align-center justify-space-between mb-4">
+              <div>
+                <div class="text-h3 font-weight-bold mb-1">
+                  {{ statistics.total_users || 0 }}
+                </div>
+                <div class="text-subtitle-1 text-medium-emphasis">
+                  Всего пользователей
+                </div>
+              </div>
+              <v-chip
+                color="success"
+                size="large"
+                class="stat-chip"
+              >
+                100%
+              </v-chip>
             </div>
+            <v-divider class="mb-4"></v-divider>
             <v-row class="stat-details">
               <v-col cols="6">
-                <div class="text-subtitle-2 text-medium-emphasis">iOS</div>
-                <div class="text-h6">{{ statistics.ios_users || 0 }}</div>
+                <div class="d-flex align-center justify-space-between">
+                  <div>
+                    <div class="text-h5 mb-1">{{ statistics.ios_users || 0 }}</div>
+                    <div class="text-subtitle-2 text-medium-emphasis">iOS</div>
+                  </div>
+                  <v-chip
+                    color="primary"
+                    size="small"
+                  >
+                    {{ getIOSPercentage }}%
+                  </v-chip>
+                </div>
               </v-col>
               <v-col cols="6">
-                <div class="text-subtitle-2 text-medium-emphasis">Android</div>
-                <div class="text-h6">{{ statistics.android_users || 0 }}</div>
+                <div class="d-flex align-center justify-space-between">
+                  <div>
+                    <div class="text-h5 mb-1">{{ statistics.android_users || 0 }}</div>
+                    <div class="text-subtitle-2 text-medium-emphasis">Android</div>
+                  </div>
+                  <v-chip
+                    color="error"
+                    size="small"
+                  >
+                    {{ getAndroidPercentage }}%
+                  </v-chip>
+                </div>
               </v-col>
             </v-row>
           </v-card-text>
         </v-card>
 
-        <v-card class="stat-card" elevation="2" min-width="100%">
+        <!-- Платформы -->
+        <v-card class="stat-card" elevation="2">
           <v-card-item>
             <template v-slot:prepend>
               <v-icon
@@ -81,24 +155,32 @@
             </template>
             <v-card-title>Распределение платформ</v-card-title>
           </v-card-item>
-          <v-card-text class="d-flex justify-center align-center py-6">
-            <v-progress-circular
-              :model-value="getIOSPercentage"
-              :size="120"
-              :width="12"
-              color="primary"
-              class="platform-chart"
-            >
-              {{ getIOSPercentage }}%
-            </v-progress-circular>
-            <div class="platform-legend ml-4">
-              <div class="d-flex align-center mb-2">
-                <div class="legend-dot primary"></div>
-                <span class="text-body-2">iOS</span>
+          <v-card-text>
+            <div class="d-flex justify-center align-center py-6">
+              <div class="platform-chart-container">
+                <v-progress-circular
+                  :model-value="getIOSPercentage"
+                  :size="200"
+                  :width="20"
+                  color="primary"
+                  class="platform-chart"
+                >
+                  {{ getIOSPercentage }}%
+                </v-progress-circular>
+                <div class="platform-chart-label">iOS</div>
               </div>
-              <div class="d-flex align-center">
-                <div class="legend-dot grey"></div>
-                <span class="text-body-2">Android</span>
+              <v-divider vertical class="mx-12" style="height: 160px"></v-divider>
+              <div class="platform-chart-container">
+                <v-progress-circular
+                  :model-value="getAndroidPercentage"
+                  :size="200"
+                  :width="20"
+                  color="error"
+                  class="platform-chart"
+                >
+                  {{ getAndroidPercentage }}%
+                </v-progress-circular>
+                <div class="platform-chart-label">Android</div>
               </div>
             </div>
           </v-card-text>
@@ -148,6 +230,21 @@ export default {
       return Math.round((statistics.value.ios_users / statistics.value.total_users) * 100)
     })
 
+    const getAndroidPercentage = computed(() => {
+      if (!statistics.value.total_users) return 0
+      return Math.round((statistics.value.android_users / statistics.value.total_users) * 100)
+    })
+
+    const getRussianRecipesPercentage = computed(() => {
+      if (!statistics.value.total_recipes) return 0
+      return Math.round((statistics.value.rus_recipes / statistics.value.total_recipes) * 100)
+    })
+
+    const getEnglishRecipesPercentage = computed(() => {
+      if (!statistics.value.total_recipes) return 0
+      return Math.round((statistics.value.eng_recipes / statistics.value.total_recipes) * 100)
+    })
+
     onMounted(() => {
       fetchStatistics()
     })
@@ -155,7 +252,10 @@ export default {
     return {
       statistics,
       loading,
-      getIOSPercentage
+      getIOSPercentage,
+      getAndroidPercentage,
+      getRussianRecipesPercentage,
+      getEnglishRecipesPercentage
     }
   }
 }
@@ -163,13 +263,16 @@ export default {
 
 <style scoped>
 .stat-card {
-  transition: transform 0.3s ease;
-  height: 50%;
-  min-width: 700px !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  min-width: 100%;
+  margin: 0 -12px;
+  width: calc(100% + 24px);
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.12) !important;
 }
 
 .stat-icon {
@@ -177,31 +280,43 @@ export default {
 }
 
 .stat-details {
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
   padding-top: 12px;
-  margin-top: 8px;
 }
 
 .platform-chart {
   font-weight: bold;
+  font-size: 2.5rem;
 }
 
-.platform-legend {
-  margin-left: 24px;
+.platform-chart-container {
+  text-align: center;
+  padding: 24px;
 }
 
-.legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  margin-right: 8px;
+.platform-chart-label {
+  margin-top: 24px;
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.7);
 }
 
-.legend-dot.primary {
-  background-color: rgb(var(--v-theme-primary));
+.stat-chip {
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 0 16px;
 }
 
-.legend-dot.grey {
-  background-color: rgb(var(--v-theme-grey));
+:deep(.v-progress-circular__overlay) {
+  stroke-linecap: round;
+}
+
+@media (max-width: 960px) {
+  .platform-chart {
+    font-size: 1.5rem;
+  }
+  
+  .platform-chart-container {
+    padding: 10px;
+  }
 }
 </style> 
