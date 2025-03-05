@@ -83,7 +83,7 @@
           <el-table-column
             prop="isEnabled"
             label="Доступен"
-            width="100"
+            width="120"
           >
             <template #default="{ row }">
               <v-chip
@@ -99,7 +99,7 @@
             prop="is_alcoholic"
             label="Алкогольный"
             sortable
-            width="100"
+            width="120"
           >
             <template #default="{ row }">
               <v-chip
@@ -1071,10 +1071,15 @@ export default {
 .recipes-container {
   height: calc(100vh - 64px);
   padding: 16px;
-  margin-left: -160px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+@media (min-width: 1300px) {
+  .recipes-container {
+    margin-left: -160px;
+  }
 }
 
 .recipes-card {
@@ -1158,5 +1163,34 @@ export default {
   display: flex;
   justify-content: center;
   border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+@media (max-width: 600px) {
+  .recipes-container {
+    margin-left: 0;
+    padding: 8px;
+  }
+
+  .recipes-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .search-block {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .search-field {
+    width: 100%;
+  }
+
+  .table-container {
+    overflow-x: auto;
+  }
+
+  .recipes-table .v-data-table__wrapper table {
+    min-width: 600px;
+  }
 }
 </style>
