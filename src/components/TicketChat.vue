@@ -100,7 +100,7 @@ export default {
         return
       }
 
-      const baseUrl = 'wss://109.71.246.251:8000'
+      const baseUrl = 'wss://api.mrbarmister.pro'
       const wsUrl = `${baseUrl}/wss/support/?user_id=${this.currentUserId}&ticket_id=${this.ticket.id}`
       
       try {
