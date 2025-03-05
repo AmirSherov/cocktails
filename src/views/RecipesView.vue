@@ -270,8 +270,6 @@
         />
       </div>
     </v-card>
-
-    <!-- Диалог редактирования/создания рецепта -->
     <v-dialog v-model="dialog" max-width="1200px" persistent>
       <v-card>
         <v-overlay v-model="isSaving" class="align-center justify-center">
@@ -396,21 +394,36 @@
                         <v-card-title>Инструменты</v-card-title>
                         <v-card-text>
                           <v-autocomplete
-                          v-model="editedItem.tools"
+                            v-model="editedItem.tools"
                             :items="availableTools"
-                          item-title="name"
+                            item-title="name"
                             item-value="id"
                             label="Добавить инструмент"
-                          density="comfortable"
-                          multiple
-                          chips
-                            @change="addTool"
-                        />
-                        <v-chip-group>
+                            density="comfortable"
+                            multiple
+                            chips
+                            :loading="loadingTools"
+                            :search-input.sync="toolSearch"
+                            @update:search-input="handleToolSearch"
+                            :menu-props="{
+                              maxHeight: '400px',
+                              maxWidth: '400px'
+                            }"
+                          />
+                          <v-pagination
+                            v-if="toolPagination.total > 1"
+                            v-model="toolPagination.currentPage"
+                            :length="toolPagination.total"
+                            :total-visible="3"
+                            density="compact"
+                            class="mt-2 ml-6"
+                            @update:model-value="handleToolPageChange"
+                          />
+                          <v-chip-group>
                             <v-chip
                               v-for="toolId in editedItem.tools"
                               :key="toolId"
-                            closable
+                              closable
                               @click:close="removeTool(toolId)"
                             >
                               {{ typeof toolId === 'object' ? toolId.name : (availableTools.find(t => t.id === toolId)?.name || toolId) }}
@@ -429,10 +442,17 @@
                               <v-autocomplete
                                 v-model="ingredient.ingredient"
                                 :items="availableIngredients"
-                            item-title="name"
+                                item-title="name"
                                 item-value="id"
                                 label="Ингредиент"
-                            density="comfortable"
+                                density="comfortable"
+                                :loading="loadingIngredients"
+                                v-model:search="ingredientSearch"
+                                @update:search="handleIngredientSearch"
+                                :menu-props="{
+                                  maxHeight: '400px',
+                                  maxWidth: '400px'
+                                }"
                                 class="mr-2"
                               />
                                 <v-select
@@ -456,6 +476,15 @@
                                   @click="removeIngredient(index)"
                                 />
                               </div>
+                                <v-pagination
+                                  v-if="ingredientPagination.total > 1"
+                                  v-model="ingredientPagination.currentPage"
+                                  :length="ingredientPagination.total"
+                                  :total-visible="3"
+                                  density="compact"
+                                  class="mt-2 ml-6"
+                                  @update:model-value="handleIngredientPageChange"
+                                />
                                 <v-btn
                               color="primary"
                             variant="text"
@@ -591,7 +620,23 @@ export default {
     imageFile: null,
     imagePreview: null,
     imageDialog: false,
-    selectedImage: null
+    selectedImage: null,
+    toolSearch: '',
+    loadingTools: false,
+    toolPagination: {
+      currentPage: 1,
+      pageSize: 15,
+      total: 0
+    },
+    toolSearchTimeout: null,
+    ingredientSearch: '',
+    loadingIngredients: false,
+    ingredientPagination: {
+      currentPage: 1,
+      pageSize: 15,
+      total: 0
+    },
+    ingredientSearchTimeout: null
   }),
 
   computed: {
@@ -757,20 +802,93 @@ export default {
 
     async loadToolsAndIngredients() {
       try {
-        const [tools, ingredients] = await Promise.all([
-          axios.get('/admin/tool/'),
-          axios.get('/admin/ingredient/')
+        await Promise.all([
+          this.fetchTools(),
+          this.fetchIngredients()
         ])
-        
-        this.availableTools = Array.isArray(tools.data) ? tools.data :
-                            Array.isArray(tools.data.results) ? tools.data.results : []
-        this.availableIngredients = Array.isArray(ingredients.data) ? ingredients.data :
-                                   Array.isArray(ingredients.data.results) ? ingredients.data.results : []
       } catch (error) {
         console.error('Error fetching tools and ingredients:', error)
         this.availableTools = []
         this.availableIngredients = []
       }
+    },
+
+    async fetchTools() {
+      try {
+        this.loadingTools = true
+        const params = new URLSearchParams({
+          page: this.toolPagination.currentPage
+        })
+
+        if (this.toolSearch) {
+          params.append('search', this.toolSearch)
+        }
+
+        const response = await axios.get(`/admin/tool/?${params.toString()}`)
+        
+        this.availableTools = Array.isArray(response.data.results) ? response.data.results : []
+        this.toolPagination.total = Math.ceil((response.data.count || 0) / this.toolPagination.pageSize)
+      } catch (error) {
+        console.error('Error fetching tools:', error)
+        this.availableTools = []
+      } finally {
+        this.loadingTools = false
+      }
+    },
+
+    handleToolSearch(value) {
+      if (this.toolSearchTimeout) {
+        clearTimeout(this.toolSearchTimeout)
+      }
+      
+      this.toolSearchTimeout = setTimeout(async () => {
+        this.toolPagination.currentPage = 1
+        await this.fetchTools()
+      }, 300)
+    },
+
+    async handleToolPageChange(page) {
+      this.toolPagination.currentPage = page
+      await this.fetchTools()
+    },
+
+    async fetchIngredients() {
+      try {
+        this.loadingIngredients = true
+        const params = new URLSearchParams({
+          page: this.ingredientPagination.currentPage
+        })
+
+        if (this.ingredientSearch) {
+          params.append('search', this.ingredientSearch)
+        }
+
+        const response = await axios.get(`/admin/ingredient/?${params.toString()}`)
+        
+        this.availableIngredients = Array.isArray(response.data.results) ? response.data.results : []
+        this.ingredientPagination.total = Math.ceil((response.data.count || 0) / this.ingredientPagination.pageSize)
+      } catch (error) {
+        console.error('Error fetching ingredients:', error)
+        this.availableIngredients = []
+      } finally {
+        this.loadingIngredients = false
+      }
+    },
+
+    handleIngredientSearch(value) {
+      if (this.ingredientSearchTimeout) {
+        clearTimeout(this.ingredientSearchTimeout)
+      }
+      
+      this.ingredientSearchTimeout = setTimeout(async () => {
+        this.ingredientPagination.currentPage = 1
+        await this.fetchIngredients()
+      }, 300)
+    },
+
+    async handleIngredientPageChange(page) {
+      this.ingredientPagination.currentPage = page
+      await this.fetchIngredients()
     },
 
     editRecipe(item) {
@@ -1192,5 +1310,15 @@ export default {
   .recipes-table .v-data-table__wrapper table {
     min-width: 600px;
   }
+}
+
+.v-autocomplete :deep(.v-field__append-inner) {
+  align-items: center;
+  padding-top: 0;
+}
+
+.v-pagination {
+  margin: 0;
+  padding: 0;
 }
 </style>
