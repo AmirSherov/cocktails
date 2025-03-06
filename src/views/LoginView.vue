@@ -30,7 +30,6 @@
               required
               :rules="[v => !!v || 'Пароль обязателен']"
               class="mb-6"
-              @keyup.enter="handleLogin"
               density="comfortable"
               variant="outlined"
               bg-color="surface"
@@ -65,7 +64,6 @@ export default {
     const router = useRouter()
     const authStore = useAuthStore()
     const toast = useToast()
-
     const form = ref(null)
     const valid = ref(false)
     const loading = ref(false)
@@ -84,7 +82,6 @@ export default {
       try {
         const success = await authStore.login(email.value, password.value)
         if (success) {
-          toast.success('Успешный вход под именем ' + email.value)
           router.push('/users')
         } else {
           toast.error('Неверный логин или пароль')

@@ -1194,7 +1194,7 @@ export default {
   overflow: hidden;
 }
 
-@media (min-width: 1300px) {
+@media (min-width: 1350px) {
   .recipes-container {
     margin-left: -160px;
   }

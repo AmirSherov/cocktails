@@ -7,10 +7,9 @@
       </v-col>
     </v-row>
 
-    <v-row justify="center">
-      <v-col cols="12" xl="10" lg="11">
-        <!-- Рецепты -->
-        <v-card class="stat-card mb-6" elevation="2">
+    <v-row >
+      <v-col cols="12" xl="10" >
+        <v-card width="200%" class="stat-card mb-6" elevation="2">
           <v-card-item>
             <template v-slot:prepend>
               <v-icon
@@ -74,9 +73,7 @@
             </v-row>
           </v-card-text>
         </v-card>
-
-        <!-- Пользователи -->
-        <v-card class="stat-card mb-6" elevation="2">
+        <v-card width="200%" class="stat-card mb-6" elevation="2">
           <v-card-item>
             <template v-slot:prepend>
               <v-icon
@@ -119,7 +116,7 @@
                     color="primary"
                     size="small"
                   >
-                    {{ getIOSPercentage }}%
+                    {{ getIOSPercentage.toFixed(1) }}%
                   </v-chip>
                 </div>
               </v-col>
@@ -133,16 +130,14 @@
                     color="error"
                     size="small"
                   >
-                    {{ getAndroidPercentage }}%
+                    {{ getAndroidPercentage.toFixed(1) }}%
                   </v-chip>
                 </div>
               </v-col>
             </v-row>
           </v-card-text>
         </v-card>
-
-        <!-- Платформы -->
-        <v-card class="stat-card" elevation="2">
+        <v-card width="200%" class="stat-card" elevation="2">
           <v-card-item>
             <template v-slot:prepend>
               <v-icon
@@ -158,29 +153,30 @@
           <v-card-text>
             <div class="d-flex justify-center align-center py-6">
               <div class="platform-chart-container">
-                <v-progress-circular
-                  :model-value="getIOSPercentage"
-                  :size="200"
-                  :width="20"
-                  color="primary"
-                  class="platform-chart"
-                >
-                  {{ getIOSPercentage }}%
-                </v-progress-circular>
-                <div class="platform-chart-label">iOS</div>
-              </div>
-              <v-divider vertical class="mx-12" style="height: 160px"></v-divider>
-              <div class="platform-chart-container">
-                <v-progress-circular
-                  :model-value="getAndroidPercentage"
-                  :size="200"
-                  :width="20"
-                  color="error"
-                  class="platform-chart"
-                >
-                  {{ getAndroidPercentage }}%
-                </v-progress-circular>
-                <div class="platform-chart-label">Android</div>
+                <div class="platform-distribution">
+                  <svg viewBox="0 0 42 42" class="donut">
+                    <circle class="donut-hole" cx="21" cy="21" r="15.91549430918954" fill="#fff"></circle>
+                    <circle class="donut-ring" cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#d2d3d4" stroke-width="4"></circle>
+                    <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" 
+                      stroke="#FF5252" stroke-width="4.5" 
+                      :stroke-dasharray="`${getAndroidPercentage} ${100 - getAndroidPercentage}`"
+                      stroke-dashoffset="25"></circle>
+                    <circle class="donut-segment" cx="21" cy="21" r="15.91549430918954" fill="transparent" 
+                      stroke="#1867C0" stroke-width="4.5" 
+                      :stroke-dasharray="`${getIOSPercentage} ${100 - getIOSPercentage}`"
+                      :stroke-dashoffset="25 - getAndroidPercentage"></circle>
+                  </svg>
+                </div>
+                <div class="platform-labels">
+                  <div class="platform-label">
+                    <span class="label-dot" style="background-color: #FF5252"></span>
+                    <span class="label-text">iOS {{ getAndroidPercentage.toFixed(1) }}%</span>
+                  </div>
+                  <div class="platform-label">
+                    <span class="label-dot" style="background-color: #1867C0"></span>
+                    <span class="label-text">Android {{ getIOSPercentage.toFixed(1) }}%</span>
+                  </div>
+                </div>
               </div>
             </div>
           </v-card-text>
@@ -226,13 +222,15 @@ export default {
     }
 
     const getIOSPercentage = computed(() => {
-      if (!statistics.value.total_users) return 0
-      return Math.round((statistics.value.ios_users / statistics.value.total_users) * 100)
+      const total = statistics.value.ios_users + statistics.value.android_users
+      if (!total) return 0
+      return (statistics.value.ios_users / total) * 100
     })
 
     const getAndroidPercentage = computed(() => {
-      if (!statistics.value.total_users) return 0
-      return Math.round((statistics.value.android_users / statistics.value.total_users) * 100)
+      const total = statistics.value.ios_users + statistics.value.android_users
+      if (!total) return 0
+      return (statistics.value.android_users / total) * 100
     })
 
     const getRussianRecipesPercentage = computed(() => {
@@ -291,16 +289,54 @@ export default {
 .platform-chart-container {
   text-align: center;
   padding: 24px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 32px;
 }
 
-.platform-chart-label {
-  margin-top: 24px;
-  font-size: 1.25rem;
+.platform-distribution {
+  position: relative;
+  width: 250px;
+  height: 250px;
+}
+
+.platform-labels {
+  text-align: left;
+  padding-left: 16px;
+}
+
+.platform-label {
+  display: flex;
+  align-items: center;
+  margin: 12px 0;
+  font-size: 1.2rem;
   font-weight: 500;
-  color: rgba(0, 0, 0, 0.7);
 }
 
-.stat-chip {
+.label-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 12px;
+}
+
+.label-text {
+  color: rgba(0, 0, 0, 0.87);
+}
+
+@media (max-width: 960px) {
+  .platform-label {
+    font-size: 1.1rem;
+  }
+  
+  .platform-chart-container {
+    gap: 24px;
+  }
+}
+
+.platform-chip {
   font-weight: 600;
   font-size: 1.1rem;
   padding: 0 16px;
@@ -308,15 +344,36 @@ export default {
 
 :deep(.v-progress-circular__overlay) {
   stroke-linecap: round;
+  transition: all 0.3s ease;
+}
+
+.circular-chart {
+  width: 200px;
+  height: 200px;
+  transform: rotate(-90deg);
+}
+
+.circular-chart path {
+  transition: all 0.3s ease;
 }
 
 @media (max-width: 960px) {
-  .platform-chart {
-    font-size: 1.5rem;
+  .platform-percentages div {
+    font-size: 1rem;
   }
-  
-  .platform-chart-container {
-    padding: 10px;
-  }
+}
+
+.donut {
+  width: 250px;
+  height: 250px;
+  transform: rotate(-90deg);
+}
+
+.donut-ring {
+  stroke: #eeeeee;
+}
+
+.donut-segment {
+  transition: stroke-dasharray 0.3s ease;
 }
 </style> 
