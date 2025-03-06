@@ -1234,6 +1234,34 @@ export default {
   flex: 1;
   overflow: auto;
   margin: 0 16px;
+  position: relative;
+  max-width: 100%;
+}
+
+.el-table {
+  width: 100%;
+  min-width: 1000px;
+}
+
+:deep(.el-table__body-wrapper),
+:deep(.el-table__header-wrapper) {
+  overflow-x: auto !important;
+}
+
+:deep(.el-table__inner-wrapper) {
+  overflow: visible !important;
+}
+
+:deep(.el-table__fixed-right) {
+  position: sticky !important;
+  right: 0;
+  z-index: 2;
+  background-color: white;
+  box-shadow: -4px 0 6px -4px rgba(0, 0, 0, 0.12);
+}
+
+:deep(.el-table__fixed-right-patch) {
+  background-color: white;
 }
 
 .recipes-table {
@@ -1304,11 +1332,7 @@ export default {
   }
 
   .table-container {
-    overflow-x: auto;
-  }
-
-  .recipes-table .v-data-table__wrapper table {
-    min-width: 600px;
+    margin: 0 8px;
   }
 }
 
