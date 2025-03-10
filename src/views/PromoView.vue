@@ -390,7 +390,7 @@ export default {
       { title: 'Название', key: 'name', width: '15%' },
       { title: 'Код', key: 'code', width: '15%' },
       { title: 'Описание', key: 'description', width: '20%' },
-      { title: 'Ссылка', key: 'links', width: '40px', class: 'link-column' },
+      { title: 'Ссылка', key: 'links', width: '50px', class: 'link-column' },
       { title: 'Цена', key: 'cost', width: '100px' },
       { title: 'Количество покупок', key: 'how_much_purchased', width: '150px' },
       { title: 'Действия', key: 'actions', sortable: false, width: '120px', fixed: true }
@@ -449,6 +449,11 @@ export default {
         const response = await axios.get('/admin/promo/')
         promos.value = Array.isArray(response.data) ? response.data : 
                       response.data.results ? response.data.results : []
+        // Apply truncation to promo links
+        promos.value = promos.value.map(promo => ({
+          ...promo,
+          links: truncateLink(promo.links)
+        }))
       } catch {
         toast.error('Ошибка при загрузке промокодов')
         promos.value = []
@@ -675,6 +680,13 @@ export default {
       editedPurchase.value.user = user
     }
 
+    const truncateLink = (link) => {
+      if (link.length > 20) {
+        return link.substring(0, 17) + '...';
+      }
+      return link;
+    };
+
     onMounted(() => {
       fetchPromos()
     })
@@ -778,16 +790,16 @@ export default {
 }
 
 .link-column {
-  max-width: 40px !important;
-  width: 40px !important;
+  max-width: 50px !important;
+  width: 50px !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
 
 td.link-column {
-  max-width: 40px !important;
-  width: 40px !important;
+  max-width: 50px !important;
+  width: 50px !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
