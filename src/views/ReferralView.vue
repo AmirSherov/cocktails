@@ -13,7 +13,7 @@
             @input="handleSearch"
             density="comfortable"
           />
-          <v-btn color="primary" class="ml-4" min-width="140">
+          <v-btn color="primary" class="ml-4" min-width="140" @click="openCreateDialog">
             Создать код
           </v-btn>
         </div>

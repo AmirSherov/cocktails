@@ -390,10 +390,10 @@ export default {
       { title: 'Название', key: 'name', width: '15%' },
       { title: 'Код', key: 'code', width: '15%' },
       { title: 'Описание', key: 'description', width: '20%' },
-      { title: 'Ссылка', key: 'links', width: '20%' },
+      { title: 'Ссылка', key: 'links', width: '20%', class: 'text-truncate' },
       { title: 'Цена', key: 'cost', width: '100px' },
       { title: 'Количество покупок', key: 'how_much_purchased', width: '150px' },
-      { title: 'Действия', key: 'actions', sortable: false, width: '120px' }
+      { title: 'Действия', key: 'actions', sortable: false, width: '120px', fixed: true }
     ]
 
     const purchaseHeaders = [
@@ -751,10 +751,11 @@ export default {
   width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
+  overflow-x: auto !important;
 }
 
 .promo-table .v-data-table__wrapper table {
-  table-layout: auto;
+  table-layout: fixed;
   width: 100%;
   margin: 0;
   border-collapse: collapse;
@@ -766,6 +767,13 @@ export default {
   word-wrap: break-word;
   padding: 12px 16px;
   border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.text-truncate {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .search-field {

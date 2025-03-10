@@ -142,6 +142,7 @@
             <v-switch
               v-model="editedPoint.charge"
               label="Списание"
+              :color="editedPoint.charge ? 'error' : 'success'"
             />
           </v-form>
         </v-card-text>
