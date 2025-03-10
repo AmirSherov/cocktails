@@ -403,8 +403,9 @@
                             multiple
                             chips
                             :loading="loadingTools"
-                            :search-input.sync="toolSearch"
-                            @update:search-input="handleToolSearch"
+                            v-model:search="toolSearch"
+                            @update:search="handleToolSearch"
+                            return-object
                             :menu-props="{
                               maxHeight: '400px',
                               maxWidth: '400px'
@@ -422,7 +423,7 @@
                           <v-chip-group>
                             <v-chip
                               v-for="toolId in editedItem.tools"
-                              :key="toolId"
+                              :key="typeof toolId === 'object' ? toolId.id : toolId"
                               closable
                               @click:close="removeTool(toolId)"
                             >
@@ -842,6 +843,7 @@ export default {
       }
       
       this.toolSearchTimeout = setTimeout(async () => {
+        this.toolSearch = value
         this.toolPagination.currentPage = 1
         await this.fetchTools()
       }, 300)
@@ -881,6 +883,7 @@ export default {
       }
       
       this.ingredientSearchTimeout = setTimeout(async () => {
+        this.ingredientSearch = value
         this.ingredientPagination.currentPage = 1
         await this.fetchIngredients()
       }, 300)
@@ -981,10 +984,21 @@ export default {
       this.dialog = false
       this.imageFile = null;
       this.imagePreview = null;
-      this.$nextTick(() => {
-        this.editedItem = Object.assign({}, this.defaultItem)
-        this.editedIndex = -1
-      })
+      this.editedItem = {
+        id: null,
+        title: '',
+        description: '',
+        instruction: [],
+        isEnabled: true,
+        user: 0,
+        ingredients: [],
+        tools: [],
+        is_alcoholic: false,
+        language: 'RUS',
+        moderation_status: 'Approved',
+        video_url: ''
+      }
+      this.editedIndex = -1
     },
 
     async save() {
@@ -1125,7 +1139,9 @@ export default {
     },
 
     removeTool(tool) {
-      const index = this.editedItem.tools.indexOf(tool)
+      const index = this.editedItem.tools.findIndex(t => 
+        (typeof t === 'object' && typeof tool === 'object') ? t.id === tool.id : t === tool
+      )
       if (index !== -1) {
         this.editedItem.tools.splice(index, 1)
       }
