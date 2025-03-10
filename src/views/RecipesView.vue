@@ -896,7 +896,7 @@ export default {
 
     editRecipe(item) {
       this.editedIndex = this.getRecipeIndex(item)
-      this.editedItem = Object.assign({}, item)
+      this.editedItem = JSON.parse(JSON.stringify(item))
       this.imagePreview = this.editedItem.photo;
       this.loadToolsAndIngredients()
       this.dialog = true
@@ -917,8 +917,13 @@ export default {
 
     createRecipe() {
       this.editedIndex = -1;
-      this.editedItem = Object.assign({}, this.defaultItem);
+      // Use JSON parse/stringify for deep copy to ensure arrays are completely new
+      this.editedItem = JSON.parse(JSON.stringify(this.defaultItem));
       this.editedItem.moderation_status = 'Approved';
+      // Explicitly ensure arrays are empty
+      this.editedItem.instruction = [];
+      this.editedItem.ingredients = [];
+      this.editedItem.tools = [];
       this.loadToolsAndIngredients();
       this.dialog = true;
     },
@@ -981,24 +986,34 @@ export default {
     },
 
     close() {
-      this.dialog = false
+      this.dialog = false;
       this.imageFile = null;
       this.imagePreview = null;
-      this.editedItem = {
-        id: null,
-        title: '',
-        description: '',
-        instruction: [],
-        isEnabled: true,
-        user: 0,
-        ingredients: [],
-        tools: [],
-        is_alcoholic: false,
-        language: 'RUS',
-        moderation_status: 'Approved',
-        video_url: ''
+      this.toolSearch = '';
+      this.ingredientSearch = '';
+      
+      // Полностью сбрасываем форму, создавая новый объект
+      this.editedItem = JSON.parse(JSON.stringify(this.defaultItem));
+      
+      // Явно устанавливаем пустые массивы для коллекций
+      this.editedItem.instruction = [];
+      this.editedItem.ingredients = [];
+      this.editedItem.tools = [];
+      
+      this.editedIndex = -1;
+      
+      // Сбрасываем пагинацию
+      this.toolPagination.currentPage = 1;
+      this.ingredientPagination.currentPage = 1;
+      
+      // Очищаем списки инструментов и ингредиентов
+      this.availableTools = [];
+      this.availableIngredients = [];
+      
+      // Если есть ссылка на форму, сбрасываем её
+      if (this.$refs.form) {
+        this.$refs.form.resetValidation();
       }
-      this.editedIndex = -1
     },
 
     async save() {
