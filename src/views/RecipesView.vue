@@ -298,7 +298,7 @@
                   <v-select
                     v-model="editedItem.language"
                   :items="[
-                    { title: 'Русский', value: 'RU' },
+                    { title: 'Русский', value: 'RUS' },
                     { title: 'Английский', value: 'ENG' }
                   ]"
                   item-title="title"

@@ -390,7 +390,7 @@ export default {
       { title: 'Название', key: 'name', width: '15%' },
       { title: 'Код', key: 'code', width: '15%' },
       { title: 'Описание', key: 'description', width: '20%' },
-      { title: 'Ссылка', key: 'links', width: '20%', class: 'text-truncate' },
+      { title: 'Ссылка', key: 'links', width: '40px', class: 'link-column' },
       { title: 'Цена', key: 'cost', width: '100px' },
       { title: 'Количество покупок', key: 'how_much_purchased', width: '150px' },
       { title: 'Действия', key: 'actions', sortable: false, width: '120px', fixed: true }
@@ -733,6 +733,7 @@ export default {
 .full-width-card {
   width: 100%;
   margin: 0;
+  transform: translateX(-140px);
   border-radius: 0;
 }
 
@@ -774,6 +775,22 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.link-column {
+  max-width: 40px !important;
+  width: 40px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+td.link-column {
+  max-width: 40px !important;
+  width: 40px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .search-field {
@@ -833,4 +850,4 @@ export default {
   padding: 12px;
   background-color: #f5f5f5;
 }
-</style> 
+</style>
