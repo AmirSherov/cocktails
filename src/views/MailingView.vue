@@ -21,7 +21,7 @@
 
       <v-data-table
         :headers="headers"
-        :items="mailings"
+        :items="truncatedMailings"
         :search="search"
         :loading="loading"
         class="mailing-table elevation-1"
@@ -171,7 +171,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import axios from '@/plugins/axios'
 import { useToast } from 'vue-toastification'
 
@@ -313,6 +313,15 @@ export default {
       }
     }
 
+    const truncatedMailings = computed(() => {
+      return mailings.value.map(mailing => {
+        return {
+          ...mailing,
+          url: mailing.url.length > 10 ? mailing.url.slice(0, 10) + '...' : mailing.url
+        }
+      })
+    })
+
     onMounted(() => {
       fetchMailings()
     })
@@ -336,7 +345,8 @@ export default {
       closeDialog,
       saveMailing,
       deleteMailing,
-      confirmDelete
+      confirmDelete,
+      truncatedMailings
     }
   }
 }
