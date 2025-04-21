@@ -90,7 +90,7 @@ export function createAwsServer(app) {
       }
 
       const fileExtension = req.file.originalname.split('.').pop();
-      const fileName = `videos/${uuidv4()}.${fileExtension}`;
+      const fileName = `${uuidv4()}.${fileExtension}`;
       
       const putCommand = new PutObjectCommand({
         Bucket: AWS_CONFIG.S3_BUCKET,
