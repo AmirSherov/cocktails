@@ -1,14 +1,23 @@
+version: '3'
 
 services:
   app:
-    build: .
+    build: 
+      context: .
+      args:
+        - PORT=${VITE_PORT:-3000}
     container_name: vuejs_app
     ports:
-      - "3000:3000"
+      - "${VITE_PORT:-3000}:${VITE_PORT:-3000}"
     volumes:
       - .:/app
       - /app/node_modules
     environment:
-      - NODE_ENV=development
-      - VITE_PORT=3000
-    command: npm run dev -- --host 0.0.0.0 --port 3000 
+      - NODE_ENV=${NODE_ENV:-development}
+      - VITE_PORT=${VITE_PORT:-3000}
+      - VITE_AWS_ACCESS_KEY_ID=${VITE_AWS_ACCESS_KEY_ID}
+      - VITE_AWS_SECRET_ACCESS_KEY=${VITE_AWS_SECRET_ACCESS_KEY}
+      - VITE_AWS_REGION=${VITE_AWS_REGION:-us-east-2}
+      - VITE_S3_BUCKET=${VITE_S3_BUCKET}
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000}
+    command: npm run ${NODE_ENV:-development} -- --host 0.0.0.0 

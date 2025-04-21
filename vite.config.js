@@ -1,25 +1,37 @@
-import { fileURLToPath, URL } from 'node:url'
-
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import vueJsx from '@vitejs/plugin-vue-jsx'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
-// https://vite.dev/config/
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
 export default defineConfig({
   plugins: [
     vue(),
-    vueJsx(),
+    {
+      name: 'configure-server',
+      configureServer: async (server) => {
+        const express = (await import('express')).default
+        const { createAwsServer } = await import('./src/aws-server/index.js')
+        
+        const app = express()
+        createAwsServer(app)
+        
+        server.middlewares.use('/api/aws', app)
+      }
+    }
   ],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {
-    host: '0.0.0.0',
     port: 3000,
+    host: '0.0.0.0',
     allowedHosts: [
       'mrbarmister.pro',
-    ],
-  },
+      'localhost'
+    ]
+  }
 })

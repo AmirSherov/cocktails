@@ -136,13 +136,6 @@
             width="100"
           />
           <el-table-column
-            v-if="activeTab !== 0"
-            prop="video_url"
-            label="Видео URL"
-            sortable
-            show-overflow-tooltip
-          />
-          <el-table-column
             prop="tools"
             label="Инструменты"
             show-overflow-tooltip
@@ -317,8 +310,9 @@
                 <v-col cols="12" sm="6">
                   <v-text-field
                     v-model="editedItem.video_url"
-                    label="Ссылка на видео"
+                    label="Ссылка на видео с YouTube"
                     density="comfortable"
+                    :disabled="!!videoFile || !!editedItem.video_aws_key"
                   />
                 </v-col>
                 <v-col cols="12" sm="6">
@@ -338,6 +332,38 @@
                       style="max-width: 200px; max-height: 200px; cursor: pointer;"
                       @click="showImage(imagePreview || editedItem.photo)"
                     />
+                  </div>
+                </v-col>
+                <v-col cols="12">
+                  <div class="d-flex flex-column">
+                    <label for="video-upload" class="mb-2">Загрузить видео или файл</label>
+                    <input
+                      id="video-upload"
+                      type="file"
+                      accept="video/*,.pdf,.doc,.docx,.txt,.rtf,.zip,.rar"
+                      @change="handleVideoUpload"
+                      class="mb-2"
+                      :disabled="!!editedItem.video_url || !!editedItem.video_aws_key"
+                    />
+                    <div v-if="videoFile" class="d-flex align-center gap-2">
+                      <v-chip color="primary" closable @click:close="clearVideoFile">
+                        {{ videoFile.name }}
+                      </v-chip>
+                    </div>
+                    <div v-else-if="editedItem.video_aws_key" class="d-flex align-center gap-2">
+                      <v-chip color="success" closable @click:close="clearAwsVideo">
+                        {{ getFileTypeLabel(editedItem.video_aws_key) }}
+                      </v-chip>
+                      <v-btn
+                        color="primary"
+                        size="small"
+                        variant="text"
+                        prepend-icon="mdi-download"
+                        @click="downloadVideo(editedItem.video_aws_key)"
+                      >
+                        Скачать
+                      </v-btn>
+                    </div>
                   </div>
                 </v-col>
                 <v-col cols="12" sm="3">
@@ -545,6 +571,7 @@
 
 <script>
 import axios from '@/plugins/axios'
+import { uploadVideoToS3, deleteVideoFromS3, getVideoUrl, downloadVideoFromS3 } from '@/aws-server/aws'
 
 export default {
   name: 'RecipesView',
@@ -577,7 +604,8 @@ export default {
       is_alcoholic: false,
       language: 'RUS',
       moderation_status: 'Approved',
-      video_url: ''
+      video_url: '',
+      video_aws_key: ''
     },
     defaultItem: {
       id: null,
@@ -591,7 +619,8 @@ export default {
       is_alcoholic: false,
       language: 'RUS',
       moderation_status: 'Approved',
-      video_url: ''
+      video_url: '',
+      video_aws_key: ''
     },
     selectedTool: null,
     availableTools: [],
@@ -637,7 +666,11 @@ export default {
       pageSize: 15,
       total: 0
     },
-    ingredientSearchTimeout: null
+    ingredientSearchTimeout: null,
+    videoFile: null,
+    videoDialog: false,
+    uploadingVideo: false,
+    videoToDelete: null,
   }),
 
   computed: {
@@ -680,7 +713,7 @@ export default {
       val || this.close()
     },
     activeTab: {
-      handler(newVal) {
+      handler() {
         this.recipePagination.currentPage = 1;
         this.search = '';
         this.initialize();
@@ -917,10 +950,8 @@ export default {
 
     createRecipe() {
       this.editedIndex = -1;
-      // Use JSON parse/stringify for deep copy to ensure arrays are completely new
       this.editedItem = JSON.parse(JSON.stringify(this.defaultItem));
       this.editedItem.moderation_status = 'Approved';
-      // Explicitly ensure arrays are empty
       this.editedItem.instruction = [];
       this.editedItem.ingredients = [];
       this.editedItem.tools = [];
@@ -931,10 +962,22 @@ export default {
     async deleteRecipe(item) {
       if (confirm('Вы уверены, что хотите удалить этот рецепт?')) {
         try {
+          this.loading = true;
+          if (item.video_aws_key) {
+            try {
+              await deleteVideoFromS3(item.video_aws_key);
+            } catch (deleteError) {
+              console.error('Ошибка при удалении файла из S3:', deleteError);
+            }
+          }
+
           await axios.delete(`/admin/recipe/approved/${item.id}/`);
-          this.initialize();
+          await this.initialize();
         } catch (error) {
           console.error('Error deleting recipe:', error);
+          alert('Ошибка при удалении рецепта');
+        } finally {
+          this.loading = false;
         }
       }
     },
@@ -989,28 +1032,25 @@ export default {
       this.dialog = false;
       this.imageFile = null;
       this.imagePreview = null;
+      this.videoFile = null;
+      this.videoToDelete = null;
       this.toolSearch = '';
       this.ingredientSearch = '';
       
-      // Полностью сбрасываем форму, создавая новый объект
       this.editedItem = JSON.parse(JSON.stringify(this.defaultItem));
       
-      // Явно устанавливаем пустые массивы для коллекций
       this.editedItem.instruction = [];
       this.editedItem.ingredients = [];
       this.editedItem.tools = [];
       
       this.editedIndex = -1;
       
-      // Сбрасываем пагинацию
       this.toolPagination.currentPage = 1;
       this.ingredientPagination.currentPage = 1;
       
-      // Очищаем списки инструментов и ингредиентов
       this.availableTools = [];
       this.availableIngredients = [];
       
-      // Если есть ссылка на форму, сбрасываем её
       if (this.$refs.form) {
         this.$refs.form.resetValidation();
       }
@@ -1020,6 +1060,22 @@ export default {
       try {
         this.isSaving = true;
         
+        let videoAwsKey = this.editedItem.video_aws_key || '';
+        
+        if (this.videoFile) {
+          try {
+            // Если есть старое видео, помечаем его на удаление
+            if (this.editedItem.video_aws_key) {
+              this.videoToDelete = this.editedItem.video_aws_key;
+            }
+            
+            videoAwsKey = await uploadVideoToS3(this.videoFile);
+          } catch (uploadError) {
+            console.error('Ошибка при загрузке видео:', uploadError);
+            throw new Error(`Ошибка загрузки видео: ${uploadError.message}`);
+          }
+        }
+
         const instructionObj = {};
         this.editedItem.instruction.forEach((step, index) => {
           if (step.trim()) {
@@ -1053,6 +1109,7 @@ export default {
           language: typeof this.editedItem.language === 'object' ? this.editedItem.language.value : this.editedItem.language,
           moderation_status: this.editedItem.moderation_status,
           video_url: this.editedItem.video_url || '',
+          video_aws_key: videoAwsKey,
           instruction: instructionObj,
           tools: processedTools,
           ingredients: processedIngredients
@@ -1087,9 +1144,8 @@ export default {
           recipeId = this.editedItem.id;
         }
 
+        // Если есть изображение, загружаем его
         if (this.imageFile && recipeId) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-
           try {
             const imageFormData = new FormData();
             imageFormData.append('photo', this.imageFile, this.imageFile.name);
@@ -1117,20 +1173,32 @@ export default {
               }
             });
           } catch (imageError) {
-            console.error('Error uploading image:', imageError);
-            throw new Error('Error uploading image');
+            console.error('Ошибка при загрузке изображения:', imageError);
+          }
+        }
+
+        // После успешного сохранения рецепта удаляем старое видео, если оно было помечено на удаление
+        if (this.videoToDelete) {
+          try {
+            await deleteVideoFromS3(this.videoToDelete);
+          } catch (deleteError) {
+            console.error('Ошибка при удалении старого видео:', deleteError);
+          } finally {
+            this.videoToDelete = null;
           }
         }
 
         await this.initialize();
         this.close();
       } catch (error) {
-        console.error('Error saving recipe:', error);
-        if (error.response && error.response.data) {
-          alert(`Error saving: ${JSON.stringify(error.response.data)}`);
-        } else {
-          alert(`Error saving: ${error.message}`);
+        console.error('Ошибка при сохранении рецепта:', error);
+        let errorMessage = 'Ошибка при сохранении рецепта';
+        if (error.response?.data) {
+          errorMessage = `Ошибка: ${JSON.stringify(error.response.data)}`;
+        } else if (error.message) {
+          errorMessage = error.message;
         }
+        alert(errorMessage);
       } finally {
         this.isSaving = false;
       }
@@ -1210,6 +1278,77 @@ export default {
           this.showImage(e.target.result);
         };
         reader.readAsDataURL(file);
+      }
+    },
+
+    handleVideoUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        this.videoFile = file;
+        this.editedItem.video_url = ''; // Clear YouTube URL if video file is selected
+      }
+    },
+
+    clearVideoFile() {
+      this.videoFile = null;
+      const input = document.getElementById('video-upload');
+      if (input) input.value = '';
+    },
+
+    clearAwsVideo() {
+      if (confirm('Вы уверены, что хотите удалить загруженное видео?')) {
+        // Сохраняем ключ видео для удаления после сохранения рецепта
+        this.videoToDelete = this.editedItem.video_aws_key;
+        // Очищаем ключ в форме
+        this.editedItem.video_aws_key = '';
+      }
+    },
+
+    getFileTypeLabel(filename) {
+      const extension = filename.split('.').pop().toLowerCase();
+      const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
+      
+      if (videoExtensions.includes(extension)) {
+        return 'Загруженное видео';
+      }
+      
+      const fileTypeLabels = {
+        pdf: 'PDF документ',
+        doc: 'Word документ',
+        docx: 'Word документ',
+        txt: 'Текстовый файл',
+        rtf: 'RTF документ',
+        zip: 'ZIP архив',
+        rar: 'RAR архив'
+      };
+      
+      return fileTypeLabels[extension] || 'Загруженный файл';
+    },
+
+    getVideoUrl(key) {
+      return getVideoUrl(key);
+    },
+
+    async downloadVideo(key) {
+      try {
+        this.isSaving = true;
+        
+        const response = await downloadVideoFromS3(key);
+        
+        const blob = new Blob([response.data], { type: response.headers['content-type'] || 'video/mp4' });
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = key.split('/').pop();
+        document.body.appendChild(link);
+        link.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        document.body.removeChild(link);
+      } catch (error) {
+        console.error('Error downloading video:', error);
+        alert('Ошибка при скачивании видео');
+      } finally {
+        this.isSaving = false;
       }
     },
   }
@@ -1375,5 +1514,14 @@ export default {
 .v-pagination {
   margin: 0;
   padding: 0;
+}
+
+.video-link {
+  color: #1976d2;
+  text-decoration: underline;
+}
+
+.gap-2 {
+  gap: 8px;
 }
 </style>
