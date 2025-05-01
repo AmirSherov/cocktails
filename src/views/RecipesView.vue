@@ -358,10 +358,10 @@
                         color="primary"
                         size="small"
                         variant="text"
-                        prepend-icon="mdi-download"
-                        @click="downloadVideo(editedItem.video_aws_key)"
+                        prepend-icon="mdi-eye"
+                        @click="viewVideo(editedItem.video_aws_key)"
                       >
-                        Скачать
+                        Просмотр
                       </v-btn>
                     </div>
                   </div>
@@ -1350,6 +1350,13 @@ export default {
       } finally {
         this.isSaving = false;
       }
+    },
+
+    async viewVideo(key) {
+      if (!key) return;
+      
+      const videoUrl = `https://cocktails-video-bucket.s3.us-east-2.amazonaws.com/${key}`;
+      window.open(videoUrl, '_blank');
     },
   }
 }
