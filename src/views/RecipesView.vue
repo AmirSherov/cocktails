@@ -1355,7 +1355,7 @@ export default {
     async viewVideo(key) {
       if (!key) return;
       
-      const videoUrl = `https://cocktails-video-bucket.s3.us-east-2.amazonaws.com/${key}`;
+      const videoUrl = `https://cocktails-video-bucket.s3.us-east-2.amazonaws.com/${key}.mp4`;
       window.open(videoUrl, '_blank');
     },
   }
