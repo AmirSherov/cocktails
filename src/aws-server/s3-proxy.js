@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-const API_BASE_URL = '/api/aws';
+// Определяем базовый URL в зависимости от хоста
+const getBaseUrl = () => {
+  const hostname = window.location.hostname;
+  const baseUrl = hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin;
+  return `${baseUrl}/api/aws`;
+};
+
+const API_BASE_URL = getBaseUrl();
 
 const s3Proxy = {
   /**
@@ -66,7 +73,9 @@ const s3Proxy = {
     if (!key) return '';
     const region = 'us-east-2';
     const bucket = 'cocktails-video-bucket';
-    return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+    // Проверяем, содержит ли ключ уже расширение
+    const fileKey = key.includes('.') ? key : `${key}.mp4`;
+    return `https://${bucket}.s3.${region}.amazonaws.com/${fileKey}`;
   }
 };
 

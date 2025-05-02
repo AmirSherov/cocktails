@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-// Получаем базовый URL из переменных окружения или используем дефолтный
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+// Получаем базовый URL из переменных окружения или используем текущий домен
+const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : `${window.location.origin}`)
 
 const awsAxios = axios.create({
   baseURL: `${API_URL}/api/aws`
@@ -9,12 +9,9 @@ const awsAxios = axios.create({
 
 /**
  * @param {File} file - Файл для загрузки
- * @param {Function} onProgress - Функция обратного вызова для отслеживания прогресса загрузки
- * @param {Function} onSuccess - Функция обратного вызова при успешной загрузке
- * @param {Function} onError - Функция обратного вызова при ошибке загрузки
  * @returns {Promise<string>} - Ключ загруженного файла
  */
-export const uploadVideoToS3 = async (file, onProgress, onSuccess, onError) => {
+export const uploadVideoToS3 = async (file) => {
   const formData = new FormData()
   formData.append('file', file)
 
@@ -29,17 +26,83 @@ export const uploadVideoToS3 = async (file, onProgress, onSuccess, onError) => {
 
 /**
  * Удаляет видео из S3 через прокси
- * @param {string} videoKey - Ключ видео для удаления
+ * @param {string} key - Ключ видео для удаления
  * @returns {Promise<boolean>} - Результат операции удаления
  */
 export const deleteVideoFromS3 = async (key) => {
   if (!key) return true;
 
   try {
-    await awsAxios.delete(`/file/${encodeURIComponent(key)}`);
-    return true;
-  } catch (error) {
-    console.error("Ошибка удаления видео из S3:", error);
+    // Подготавливаем и очищаем ключ
+    let cleanKey = key.trim();
+    
+    // Исправляем дублирование расширения
+    if (cleanKey.endsWith('.mp4.mp4')) {
+      cleanKey = cleanKey.replace('.mp4.mp4', '.mp4');
+    }
+    
+    console.log(`[AWS] Удаляем файл с ключом: ${cleanKey}`);
+    
+    // РЕАЛЬНОЕ удаление файла с использованием всех возможных вариантов ключа
+    const variants = [cleanKey];
+    
+    // Добавляем вариант с расширением или без, в зависимости от текущего ключа
+    if (cleanKey.endsWith('.mp4')) {
+      variants.push(cleanKey.substring(0, cleanKey.length - 4));
+    } else if (!cleanKey.includes('.')) {
+      variants.push(`${cleanKey}.mp4`);
+    }
+    
+    // Пробуем все варианты ключей для удаления
+    for (const variant of variants) {
+      try {
+        console.log(`[AWS] Отправляем запрос на удаление файла: ${variant}`);
+        
+        const response = await awsAxios.delete(`/file/${encodeURIComponent(variant)}`, {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'X-Force-Delete': 'true'
+          },
+          timeout: 10000
+        });
+        
+        if (response.data && response.data.success) {
+          console.log(`[AWS] Файл успешно удален: ${variant}`);
+          return true;
+        } else {
+          console.warn(`[AWS] Сервер вернул неожиданный ответ:`, response.data);
+        }
+      } catch (variantError) {
+        console.error(`[AWS] Ошибка при удалении варианта ${variant}:`, 
+          variantError.response?.status || variantError.message);
+      }
+    }
+    
+    // Если все попытки не удались, используем крайнее средство - запрос на принудительное удаление
+    try {
+      console.log(`[AWS] Отправляем запрос на принудительное удаление: ${cleanKey}`);
+      
+      const response = await awsAxios.post('/force-delete', { key: cleanKey }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        timeout: 10000
+      });
+      
+      if (response.data && response.data.success) {
+        console.log(`[AWS] Файл удален принудительно: ${cleanKey}`);
+        return true;
+      }
+    } catch (forceError) {
+      console.error(`[AWS] Ошибка при принудительном удалении:`, forceError.message);
+    }
+    
+    // Если все попытки не удались
+    console.error(`[AWS] Не удалось удалить файл: ${cleanKey}`);
+    return false;
+  } catch (finalError) {
+    console.error(`[AWS] Критическая ошибка при удалении:`, finalError.message);
     return false;
   }
 }

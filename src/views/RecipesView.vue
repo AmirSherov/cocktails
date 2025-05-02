@@ -963,16 +963,41 @@ export default {
       if (confirm('Вы уверены, что хотите удалить этот рецепт?')) {
         try {
           this.loading = true;
+          
+          // Новый подход: сначала удаляем рецепт из базы, затем удаляем видео из S3
+          console.log(`Удаление рецепта с ID: ${item.id}`);
+          await axios.delete(`/admin/recipe/approved/${item.id}/`);
+          
+          // После удаления рецепта удаляем видео из S3 (если оно есть)
           if (item.video_aws_key) {
+            console.log('Начинаю удаление видео из S3:', item.video_aws_key);
+            
             try {
-              await deleteVideoFromS3(item.video_aws_key);
+              // Реальное удаление видео из S3
+              let videoKey = item.video_aws_key.trim();
+              
+              // Проверяем и исправляем дублирующиеся расширения
+              if (videoKey.endsWith('.mp4.mp4')) {
+                videoKey = videoKey.replace('.mp4.mp4', '.mp4');
+                console.log('Исправлен ключ с дублирующимся расширением:', videoKey);
+              }
+              
+              // Прямое удаление с блокировкой, так как рецепт уже удален
+              console.log('Удаление видео с ключом:', videoKey);
+              const result = await deleteVideoFromS3(videoKey);
+              console.log('Результат удаления видео из S3:', result);
+              
+              if (!result) {
+                console.warn('Видео не удалено, возможно остались "осиротевшие" файлы в S3');
+              }
             } catch (deleteError) {
               console.error('Ошибка при удалении файла из S3:', deleteError);
             }
           }
-
-          await axios.delete(`/admin/recipe/approved/${item.id}/`);
+          
+          // Обновляем данные на странице
           await this.initialize();
+          
         } catch (error) {
           console.error('Error deleting recipe:', error);
           alert('Ошибка при удалении рецепта');
@@ -1060,15 +1085,14 @@ export default {
       try {
         this.isSaving = true;
         
-        let videoAwsKey = this.editedItem.video_aws_key || '';
+        let videoAwsKey = this.editedItem.video_aws_key;
+        if (videoAwsKey === '') videoAwsKey = null;
         
         if (this.videoFile) {
           try {
-            // Если есть старое видео, помечаем его на удаление
             if (this.editedItem.video_aws_key) {
               this.videoToDelete = this.editedItem.video_aws_key;
             }
-            
             videoAwsKey = await uploadVideoToS3(this.videoFile);
           } catch (uploadError) {
             console.error('Ошибка при загрузке видео:', uploadError);
@@ -1355,7 +1379,10 @@ export default {
     async viewVideo(key) {
       if (!key) return;
       
-      const videoUrl = `https://cocktails-video-bucket.s3.us-east-2.amazonaws.com/${key}.mp4`;
+      // Проверяем, содержит ли ключ уже расширение .mp4
+      const fileKey = key.endsWith('.mp4') ? key : `${key}.mp4`;
+      
+      const videoUrl = `https://cocktails-video-bucket.s3.us-east-2.amazonaws.com/${fileKey}`;
       window.open(videoUrl, '_blank');
     },
   }

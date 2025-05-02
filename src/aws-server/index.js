@@ -28,7 +28,6 @@ export function createAwsServer(app) {
   app.use(bodyParser.json());
 
   if (!AWS_CONFIG.AWS_ACCESS_KEY_ID || !AWS_CONFIG.AWS_SECRET_ACCESS_KEY) {
-    console.error('AWS credentials are not properly configured. Check your environment variables.');
     app.use('*', (req, res) => {
       res.status(500).json({ error: 'AWS credentials not configured' });
     });
@@ -37,9 +36,7 @@ export function createAwsServer(app) {
 
   const upload = multer({ 
     storage: multer.memoryStorage(),
-    limits: {
-      fileSize: 50 * 1024 * 1024 
-    }
+    limits: { fileSize: 50 * 1024 * 1024 }
   });
   
   const s3Client = new S3Client({
@@ -49,49 +46,33 @@ export function createAwsServer(app) {
       secretAccessKey: AWS_CONFIG.AWS_SECRET_ACCESS_KEY
     }
   });
-  
+
   app.get('/', (req, res) => {
     res.json({ status: 'ok', environment: process.env.NODE_ENV });
   });
-  
+
   app.get('/download/:key(*)', async (req, res) => {
     try {
       const { key } = req.params;
-      
-      if (!key) {
-        return res.status(400).json({ error: 'File key not provided' });
-      }
-
+      if (!key) return res.status(400).json({ error: 'File key not provided' });
       const command = new GetObjectCommand({
         Bucket: AWS_CONFIG.S3_BUCKET,
         Key: key
       });
-
       const response = await s3Client.send(command);
-
       res.setHeader('Content-Disposition', `attachment; filename="${key.split('/').pop()}"`);
       res.setHeader('Content-Type', response.ContentType);
-      
       response.Body.pipe(res);
     } catch (err) {
-      res.status(500).json({ 
-        error: 'Internal server error', 
-        details: err.message,
-        code: err.code,
-        requestId: err.$metadata?.requestId
-      });
+      res.status(500).json({ error: 'Internal server error', details: err.message });
     }
   });
-  
+
   app.post('/upload', upload.single('file'), async (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'File not provided' });
-      }
-
+      if (!req.file) return res.status(400).json({ error: 'File not provided' });
       const fileExtension = req.file.originalname.split('.').pop();
       const fileName = `${uuidv4()}.${fileExtension}`;
-      
       const putCommand = new PutObjectCommand({
         Bucket: AWS_CONFIG.S3_BUCKET,
         Key: fileName,
@@ -99,49 +80,94 @@ export function createAwsServer(app) {
         ContentType: req.file.mimetype,
         ACL: 'public-read'
       });
-      
       await s3Client.send(putCommand);
-      
       const fileUrl = `https://${AWS_CONFIG.S3_BUCKET}.s3.${AWS_CONFIG.AWS_REGION}.amazonaws.com/${fileName}`;
-      
-      res.json({
-        success: true,
-        key: fileName,
-        url: fileUrl
-      });
+      res.json({ success: true, key: fileName, url: fileUrl });
     } catch (err) {
-      res.status(500).json({ 
-        error: 'Internal server error', 
-        details: err.message,
-        code: err.code,
-        requestId: err.$metadata?.requestId
-      });
+      res.status(500).json({ error: 'Internal server error', details: err.message });
     }
   });
-  
+
   app.delete('/file/:key(*)', async (req, res) => {
     try {
-      const { key } = req.params;
-      
-      if (!key) {
-        return res.status(400).json({ error: 'File key not provided' });
+      let { key } = req.params;
+      if (!key) return res.status(400).json({ error: 'File key not provided' });
+      key = decodeURIComponent(key).trim();
+      if (key.endsWith('.mp4.mp4')) key = key.replace('.mp4.mp4', '.mp4');
+      if (key.startsWith('/')) key = key.substring(1);
+      try {
+        const headCommand = new GetObjectCommand({ Bucket: AWS_CONFIG.S3_BUCKET, Key: key });
+        try {
+          await s3Client.send(headCommand);
+        } catch (headError) {
+          if (headError.name === 'NoSuchKey') {
+            if (key.endsWith('.mp4')) {
+              const altKey = key.substring(0, key.length - 4);
+              try {
+                const altHeadCommand = new GetObjectCommand({ Bucket: AWS_CONFIG.S3_BUCKET, Key: altKey });
+                await s3Client.send(altHeadCommand);
+                key = altKey;
+              } catch {}
+            } else if (!key.includes('.')) {
+              const altKey = `${key}.mp4`;
+              try {
+                const altHeadCommand = new GetObjectCommand({ Bucket: AWS_CONFIG.S3_BUCKET, Key: altKey });
+                await s3Client.send(altHeadCommand);
+                key = altKey;
+              } catch {}
+            }
+          }
+        }
+        const deleteCommand = new DeleteObjectCommand({ Bucket: AWS_CONFIG.S3_BUCKET, Key: key });
+        await s3Client.send(deleteCommand);
+        return res.json({ success: true, key });
+      } catch (err) {
+        res.status(500).json({ error: 'Internal server error', details: err.message, key });
       }
-
-      const deleteCommand = new DeleteObjectCommand({
-        Bucket: AWS_CONFIG.S3_BUCKET,
-        Key: key
-      });
-      
-      await s3Client.send(deleteCommand);
-      
-      res.json({ success: true });
     } catch (err) {
-      res.status(500).json({ 
-        error: 'Internal server error', 
-        details: err.message,
-        code: err.code,
-        requestId: err.$metadata?.requestId
-      });
+      res.status(500).json({ error: 'Server error', message: err.message });
+    }
+  });
+
+  app.post('/mark-deleted', async (req, res) => {
+    try {
+      const { key } = req.body;
+      if (!key) return res.status(400).json({ error: 'File key not provided' });
+      res.json({ success: true, key });
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Internal Server Error', message: error.message });
+    }
+  });
+
+  app.post('/force-delete', async (req, res) => {
+    try {
+      const { key } = req.body;
+      if (!key) return res.status(400).json({ error: 'File key not provided' });
+      const cleanKey = key.trim();
+      const keyVariants = [cleanKey];
+      if (cleanKey.endsWith('.mp4')) keyVariants.push(cleanKey.substring(0, cleanKey.length - 4));
+      else if (!cleanKey.includes('.')) keyVariants.push(`${cleanKey}.mp4`);
+      let succeeded = false;
+      let deletedKey = null;
+      let lastError = null;
+      for (const variantKey of keyVariants) {
+        try {
+          const deleteCommand = new DeleteObjectCommand({ Bucket: AWS_CONFIG.S3_BUCKET, Key: variantKey });
+          await s3Client.send(deleteCommand);
+          succeeded = true;
+          deletedKey = variantKey;
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      if (succeeded) {
+        res.json({ success: true, key: deletedKey });
+      } else {
+        throw lastError || new Error(`Не удалось удалить файл с ключами: ${keyVariants.join(', ')}`);
+      }
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Internal Server Error', message: error.message, code: error.code });
     }
   });
 
