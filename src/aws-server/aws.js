@@ -1,7 +1,9 @@
 import axios from 'axios'
 
-// Получаем базовый URL из переменных окружения или используем текущий домен
-const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : `${window.location.origin}`)
+// Для продакшена:
+const API_URL = 'https://mrbarmister.pro'
+// Для локальной разработки (раскомментируй строку ниже):
+// const API_URL = 'http://localhost:3000'
 
 const awsAxios = axios.create({
   baseURL: `${API_URL}/api/aws`
