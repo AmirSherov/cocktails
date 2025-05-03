@@ -566,12 +566,80 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <!-- Диалог для загрузки видео -->
+    <v-dialog v-model="videoUploadDialog" max-width="800px">
+      <v-card>
+        <v-card-title class="bg-primary text-white pa-4">
+          <span>Загрузка видео</span>
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-close" variant="text" color="white" @click="videoUploadDialog = false"></v-btn>
+        </v-card-title>
+        <v-card-text class="pa-4">
+          <v-form ref="videoUploadForm">
+            <v-text-field
+              v-model="videoUploadFile.name"
+              label="Название видео"
+              required
+            />
+            <v-file-input
+              v-model="videoUploadFile"
+              label="Выберите видео файл"
+              accept="video/*"
+              @change="handleVideoUpload"
+            />
+            <v-text-field
+              v-model="videoUploadError"
+              label="Ошибка"
+              readonly
+            />
+          </v-form>
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer></v-spacer>
+          <v-btn
+            color="primary"
+            @click="uploadVideo"
+          >
+            Загрузить
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script>
 import axios from '@/plugins/axios'
-import { uploadVideoToS3, deleteVideoFromS3, getVideoUrl, downloadVideoFromS3 } from '@/aws-server/aws'
+import { v4 as uuidv4 } from 'uuid'
+
+// Утилита для получения upload_url
+async function getVideoUploadUrl(videoKey) {
+  const resp = await axios.get(`/admin/recipe/video-upload-url/?s3_key=${encodeURIComponent(videoKey)}`)
+  return resp.data.upload_url
+}
+
+// Утилита для загрузки файла по upload_url
+async function uploadFileToS3(uploadUrl, file) {
+  await axios.put(uploadUrl, file, {
+    headers: {
+      'Content-Type': 'video/mp4',
+      'x-amz-acl': 'public-read'
+    },
+    transformRequest: [(data, headers) => {
+      delete headers['Authorization'];
+      return data;
+    }]
+  });
+}
+
+// Проверка формата и размера
+function validateVideoFile(file) {
+  if (!file) return 'Файл не выбран';
+  if (file.type !== 'video/mp4') return 'Только mp4!';
+  if (file.size > 500 * 1024 * 1024) return 'Максимум 500 МБ';
+  return null;
+}
 
 export default {
   name: 'RecipesView',
@@ -671,6 +739,11 @@ export default {
     videoDialog: false,
     uploadingVideo: false,
     videoToDelete: null,
+    videoUploadDialog: false,
+    videoUploadRow: null,
+    videoUploadFile: null,
+    videoUploadLoading: false,
+    videoUploadError: '',
   }),
 
   computed: {
@@ -963,41 +1036,17 @@ export default {
       if (confirm('Вы уверены, что хотите удалить этот рецепт?')) {
         try {
           this.loading = true;
-          
-          // Новый подход: сначала удаляем рецепт из базы, затем удаляем видео из S3
-          console.log(`Удаление рецепта с ID: ${item.id}`);
-          await axios.delete(`/admin/recipe/approved/${item.id}/`);
-          
-          // После удаления рецепта удаляем видео из S3 (если оно есть)
+          // Сначала удаляем видео, если оно есть
           if (item.video_aws_key) {
-            console.log('Начинаю удаление видео из S3:', item.video_aws_key);
-            
             try {
-              // Реальное удаление видео из S3
-              let videoKey = item.video_aws_key.trim();
-              
-              // Проверяем и исправляем дублирующиеся расширения
-              if (videoKey.endsWith('.mp4.mp4')) {
-                videoKey = videoKey.replace('.mp4.mp4', '.mp4');
-                console.log('Исправлен ключ с дублирующимся расширением:', videoKey);
-              }
-              
-              // Прямое удаление с блокировкой, так как рецепт уже удален
-              console.log('Удаление видео с ключом:', videoKey);
-              const result = await deleteVideoFromS3(videoKey);
-              console.log('Результат удаления видео из S3:', result);
-              
-              if (!result) {
-                console.warn('Видео не удалено, возможно остались "осиротевшие" файлы в S3');
-              }
-            } catch (deleteError) {
-              console.error('Ошибка при удалении файла из S3:', deleteError);
+              await axios.delete(`/admin/recipe/video-delete/${encodeURIComponent(item.video_aws_key)}/`);
+            } catch (e) {
+              console.error('Ошибка при удалении видео рецепта:', e);
             }
           }
-          
-          // Обновляем данные на странице
+          // Только после этого удаляем сам рецепт
+          await axios.delete(`/admin/recipe/approved/${item.id}/`);
           await this.initialize();
-          
         } catch (error) {
           console.error('Error deleting recipe:', error);
           alert('Ошибка при удалении рецепта');
@@ -1084,20 +1133,29 @@ export default {
     async save() {
       try {
         this.isSaving = true;
-        
         let videoAwsKey = this.editedItem.video_aws_key;
         if (videoAwsKey === '') videoAwsKey = null;
-        
+        // Новая логика загрузки видео
         if (this.videoFile) {
-          try {
-            if (this.editedItem.video_aws_key) {
-              this.videoToDelete = this.editedItem.video_aws_key;
-            }
-            videoAwsKey = await uploadVideoToS3(this.videoFile);
-          } catch (uploadError) {
-            console.error('Ошибка при загрузке видео:', uploadError);
-            throw new Error(`Ошибка загрузки видео: ${uploadError.message}`);
+          const err = validateVideoFile(this.videoFile);
+          if (err) throw new Error(err);
+          if (this.editedItem.video_aws_key) {
+            this.videoToDelete = this.editedItem.video_aws_key;
           }
+          const key = uuidv4();
+          const uploadUrl = await getVideoUploadUrl(key);
+          await uploadFileToS3(uploadUrl, this.videoFile);
+          videoAwsKey = key;
+        }
+        // Если нужно удалить видео
+        if (this.videoToDelete) {
+          try {
+            await axios.delete(`/admin/recipe/video-delete/${encodeURIComponent(this.videoToDelete)}/`);
+          } catch (e) {
+            console.error('Ошибка при удалении видео:', e);
+          }
+          videoAwsKey = null;
+          this.videoToDelete = null;
         }
 
         const instructionObj = {};
@@ -1201,17 +1259,6 @@ export default {
           }
         }
 
-        // После успешного сохранения рецепта удаляем старое видео, если оно было помечено на удаление
-        if (this.videoToDelete) {
-          try {
-            await deleteVideoFromS3(this.videoToDelete);
-          } catch (deleteError) {
-            console.error('Ошибка при удалении старого видео:', deleteError);
-          } finally {
-            this.videoToDelete = null;
-          }
-        }
-
         await this.initialize();
         this.close();
       } catch (error) {
@@ -1306,10 +1353,12 @@ export default {
     },
 
     handleVideoUpload(event) {
-      const file = event.target.files[0];
+      const file = event.target?.files?.[0] || event;
       if (file) {
         this.videoFile = file;
-        this.editedItem.video_url = ''; // Clear YouTube URL if video file is selected
+        this.editedItem.video_url = '';
+        this.videoUploadFile = file;
+        this.videoUploadError = '';
       }
     },
 
@@ -1321,10 +1370,8 @@ export default {
 
     clearAwsVideo() {
       if (confirm('Вы уверены, что хотите удалить загруженное видео?')) {
-        // Сохраняем ключ видео для удаления после сохранения рецепта
         this.videoToDelete = this.editedItem.video_aws_key;
-        // Очищаем ключ в форме
-        this.editedItem.video_aws_key = '';
+        this.editedItem.video_aws_key = null;
       }
     },
 
@@ -1349,41 +1396,64 @@ export default {
       return fileTypeLabels[extension] || 'Загруженный файл';
     },
 
-    getVideoUrl(key) {
-      return getVideoUrl(key);
+    viewVideo(key) {
+      if (!key) return;
+      let fileKey = key;
+      if (!fileKey.endsWith('.mp4')) {
+        // если нет .mp4 — не трогаем, просто используем как есть
+        // (по ТЗ: если есть .mp4 — не добавляем, если нет — не трогаем)
+      }
+      const videoUrl = `https://cocktails-video-bucket.s3.us-east-2.amazonaws.com/${fileKey}`;
+      window.open(videoUrl, '_blank');
     },
 
-    async downloadVideo(key) {
+    openVideoUploadDialog(row) {
+      this.videoUploadRow = row
+      this.videoUploadFile = null
+      this.videoUploadError = ''
+      this.videoUploadDialog = true
+    },
+
+    async uploadVideo() {
+      if (!this.videoUploadFile) {
+        this.videoUploadError = 'Выберите файл';
+        return;
+      }
+      const err = validateVideoFile(this.videoUploadFile);
+      if (err) {
+        this.videoUploadError = err;
+        return;
+      }
+      this.videoUploadLoading = true;
       try {
-        this.isSaving = true;
-        
-        const response = await downloadVideoFromS3(key);
-        
-        const blob = new Blob([response.data], { type: response.headers['content-type'] || 'video/mp4' });
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = key.split('/').pop();
-        document.body.appendChild(link);
-        link.click();
-        window.URL.revokeObjectURL(downloadUrl);
-        document.body.removeChild(link);
-      } catch (error) {
-        console.error('Error downloading video:', error);
-        alert('Ошибка при скачивании видео');
+        const key = uuidv4();
+        const uploadUrl = await getVideoUploadUrl(key);
+        await uploadFileToS3(uploadUrl, this.videoUploadFile);
+        // Обновляем рецепт
+        await axios.patch(`/admin/recipe/approved/${this.videoUploadRow.id}/`, { video_aws_key: key });
+        this.videoUploadDialog = false;
+        this.videoUploadRow = null;
+        this.videoUploadFile = null;
+        this.videoUploadError = '';
+        this.initialize();
+      } catch (e) {
+        this.videoUploadError = 'Ошибка загрузки: ' + (e?.message || '');
       } finally {
-        this.isSaving = false;
+        this.videoUploadLoading = false;
       }
     },
 
-    async viewVideo(key) {
-      if (!key) return;
-      
-      // Проверяем, содержит ли ключ уже расширение .mp4
-      const fileKey = key.endsWith('.mp4') ? key : `${key}.mp4`;
-      
-      const videoUrl = `https://cocktails-video-bucket.s3.us-east-2.amazonaws.com/${fileKey}`;
-      window.open(videoUrl, '_blank');
+    async removeRecipeVideo(row) {
+      if (!row.video_aws_key) return;
+      if (!confirm('Удалить видео?')) return;
+      try {
+        await axios.delete(`/admin/recipe/video-delete/${encodeURIComponent(row.video_aws_key)}/`)
+        await axios.patch(`/admin/recipe/approved/${row.id}/`, { video_aws_key: '' });
+        this.initialize();
+      } catch (e) {
+        console.error('Ошибка удаления видео', e);
+        alert('Ошибка удаления видео');
+      }
     },
   }
 }
