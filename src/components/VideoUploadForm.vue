@@ -12,13 +12,13 @@
         <i class="fas fa-cloud-upload-alt"></i>
       </div>
       <div class="drag-text" v-show="!file">
-        Перетащите файл сюда или <span>выберите файл</span>
+        Перетащите видео сюда или <span>выберите видео</span>
       </div>
       <input type="file" ref="fileInput" style="display:none" @change="handleFileChange" accept="video/*,.pdf,.doc,.docx,.txt,.rtf,.zip,.rar" />
       <div class="file-info" v-show="file">
         <div class="file-name">
           <i class="fas fa-file-alt file-icon"></i>
-          <span>{{ file ? file.name : 'Файл не выбран' }}</span>
+          <span>{{ file ? file.name : 'Видео не выбрано' }}</span>
         </div>
         <div class="file-actions">
           <button class="btn btn-outline" @click.stop="removeFile">
@@ -27,9 +27,6 @@
         </div>
       </div>
     </div>
-    <button class="btn btn-primary" :disabled="!file || loading" @click="uploadFile">
-      <i class="fas fa-upload"></i> Загрузить файл
-    </button>
     <div v-if="error" class="error-message" style="color: #ff3333; margin-top: 10px;">{{ error }}</div>
   </div>
 </template>

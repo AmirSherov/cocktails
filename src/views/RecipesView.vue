@@ -307,49 +307,48 @@
                     density="comfortable"
                   />
                 </v-col>
-                <v-col cols="12" sm="6">
-                  <v-text-field
-                    v-model="editedItem.video_url"
-                    label="Ссылка на видео с YouTube"
-                    density="comfortable"
-                    :disabled="!!videoFile || !!editedItem.video_aws_key"
-                  />
-                </v-col>
-                <v-col cols="12" sm="6">
-                  <div class="d-flex flex-column">
-                    <label for="file-upload" class="mb-2">Файл рецепта</label>
-                    <template v-if="activeTab === 1">
-                      <template v-if="(!editedItem.video_aws_key && !videoToDelete) || videoToDelete">
-                        <VideoUploadForm
-                          :loading="isSaving"
-                          @file-selected="handleVideoUpload"
-                          @file-removed="clearVideoFile"
-                          @upload="save"
-                        />
+                <v-row class="mb-6">
+                  <v-col cols="12" md="7">
+                    <v-text-field
+                      v-model="editedItem.video_url"
+                      label="Ссылка на видео с YouTube"
+                      density="comfortable"
+                      :disabled="!!videoFile || !!editedItem.video_aws_key"
+                      class="mb-4"
+                    />
+                    <div class="d-flex flex-column">
+                      <label for="video-upload" class="mb-2">Загруженное Видео</label>
+                      <template v-if="activeTab === 1">
+                        <template v-if="(!editedItem.video_aws_key && !videoToDelete) || videoToDelete">
+                          <VideoUploadForm
+                            :loading="isSaving"
+                            @file-selected="handleVideoUpload"
+                            @file-removed="clearVideoFile"
+                            @upload="save"
+                          />
+                        </template>
+                        <template v-else>
+                          <div class="d-flex align-center gap-2 mt-3">
+                            <v-btn color="primary" size="small" prepend-icon="mdi-eye" @click="viewVideo(editedItem.video_aws_key)">
+                              Посмотреть видео
+                            </v-btn>
+                            <v-btn color="error" size="small" prepend-icon="mdi-delete" @click="clearAwsVideo">
+                              Удалить видео
+                            </v-btn>
+                          </div>
+                        </template>
                       </template>
                       <template v-else>
-                        <div class="d-flex align-center gap-2 mt-3">
+                        <div v-if="editedItem.video_aws_key" class="d-flex align-center gap-2 mt-2">
                           <v-btn color="primary" size="small" prepend-icon="mdi-eye" @click="viewVideo(editedItem.video_aws_key)">
-                            Посмотреть файл
-                          </v-btn>
-                          <v-btn color="error" size="small" prepend-icon="mdi-delete" @click="clearAwsVideo">
-                            Удалить файл
+                            Посмотреть видео
                           </v-btn>
                         </div>
+                        <div v-else class="mt-2" style="font-size: 16px; color: #888;">Отсутствует</div>
                       </template>
-                    </template>
-                    <template v-else>
-                      <div v-if="editedItem.video_aws_key" class="d-flex align-center gap-2 mt-2">
-                        <v-btn color="primary" size="small" prepend-icon="mdi-eye" @click="viewVideo(editedItem.video_aws_key)">
-                          Посмотреть файл
-                        </v-btn>
-                      </div>
-                      <div v-else class="mt-2" style="font-size: 16px; color: #888;">Отсутствует</div>
-                    </template>
-                  </div>
-                </v-col>
-                <v-col cols="12" sm="6">
-                  <div class="d-flex flex-column">
+                    </div>
+                  </v-col>
+                  <v-col cols="12" md="5" class="d-flex flex-column justify-start" style="padding-left: 40px;">
                     <label for="image-upload" class="mb-2">Изображение рецепта</label>
                     <input
                       id="image-upload"
@@ -365,22 +364,23 @@
                       style="max-width: 200px; max-height: 200px; cursor: pointer;"
                       @click="showImage(imagePreview || editedItem.photo)"
                     />
-                  </div>
-                </v-col>
-                <v-col cols="12" sm="3">
-                  <v-switch
-                    v-model="editedItem.isEnabled"
-                    label="Доступен"
-                  color="success"
-                />
-                </v-col>
-                <v-col cols="12" sm="3">
-                  <v-switch
-                    v-model="editedItem.is_alcoholic"
-                    label="Алкогольный"
-                  color="warning"
-                />
-                </v-col>
+                  </v-col>
+                  <v-col cols="12">
+                    <v-divider class="my-6"></v-divider>
+                    <div class="d-flex align-center" style="gap: 32px; margin-top: 24px;">
+                      <v-switch
+                        v-model="editedItem.isEnabled"
+                        label="Доступен"
+                        color="success"
+                      />
+                      <v-switch
+                        v-model="editedItem.is_alcoholic"
+                        label="Алкогольный"
+                        color="warning"
+                      />
+                    </div>
+                  </v-col>
+                </v-row>
 
                 <!-- Инструкция -->
                 <v-col cols="12">
@@ -405,7 +405,7 @@
                           <v-btn
                             color="primary"
                           variant="text"
-                          prepend-icon="mdi-plus"
+                            prepend-icon="mdi-plus"
                             @click="addInstructionStep"
                           class="mt-2"
                           >
@@ -549,65 +549,65 @@
             </v-card>
           </v-dialog>
 
-    <!-- Диалог для просмотра изображения -->
-    <v-dialog v-model="imageDialog" max-width="800px">
-      <v-card>
-        <v-card-title class="bg-primary text-white pa-4">
-          <span>Просмотр изображения</span>
-          <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="text" color="white" @click="imageDialog = false"></v-btn>
-        </v-card-title>
-        <v-card-text class="pa-0">
-          <v-img
-            :src="selectedImage"
-            max-height="600"
-            contain
-            class="bg-grey-lighten-2"
-          ></v-img>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
+      <!-- Диалог для просмотра изображения -->
+      <v-dialog v-model="imageDialog" max-width="800px">
+        <v-card>
+          <v-card-title class="bg-primary text-white pa-4">
+            <span>Просмотр изображения</span>
+            <v-spacer></v-spacer>
+            <v-btn icon="mdi-close" variant="text" color="white" @click="imageDialog = false"></v-btn>
+          </v-card-title>
+          <v-card-text class="pa-0">
+            <v-img
+              :src="selectedImage"
+              max-height="600"
+              contain
+              class="bg-grey-lighten-2"
+            ></v-img>
+          </v-card-text>
+        </v-card>
+      </v-dialog>
 
-    <!-- Диалог для загрузки видео -->
-    <v-dialog v-model="videoUploadDialog" max-width="800px">
-      <v-card>
-        <v-card-title class="bg-primary text-white pa-4">
-          <span>Загрузка видео</span>
-          <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="text" color="white" @click="videoUploadDialog = false"></v-btn>
-        </v-card-title>
-        <v-card-text class="pa-4">
-          <v-form ref="videoUploadForm">
-            <v-text-field
-              v-model="videoUploadFile.name"
-              label="Название видео"
-              required
-            />
-            <v-file-input
-              v-model="videoUploadFile"
-              label="Выберите видео файл"
-              accept="video/*"
-              @change="handleVideoUpload"
-            />
-            <v-text-field
-              v-model="videoUploadError"
-              label="Ошибка"
-              readonly
-            />
-          </v-form>
-        </v-card-text>
-        <v-card-actions class="pa-4">
-          <v-spacer></v-spacer>
-          <v-btn
-            color="primary"
-            @click="uploadVideo"
-          >
-            Загрузить
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </div>
+      <!-- Диалог для загрузки видео -->
+      <v-dialog v-model="videoUploadDialog" max-width="800px">
+        <v-card>
+          <v-card-title class="bg-primary text-white pa-4">
+            <span>Загрузка видео</span>
+            <v-spacer></v-spacer>
+            <v-btn icon="mdi-close" variant="text" color="white" @click="videoUploadDialog = false"></v-btn>
+          </v-card-title>
+          <v-card-text class="pa-4">
+            <v-form ref="videoUploadForm">
+              <v-text-field
+                v-model="videoUploadFile.name"
+                label="Название видео"
+                required
+              />
+              <v-file-input
+                v-model="videoUploadFile"
+                label="Выберите видео файл"
+                accept="video/*"
+                @change="handleVideoUpload"
+              />
+              <v-text-field
+                v-model="videoUploadError"
+                label="Ошибка"
+                readonly
+              />
+            </v-form>
+          </v-card-text>
+          <v-card-actions class="pa-4">
+            <v-spacer></v-spacer>
+            <v-btn
+              color="primary"
+              @click="uploadVideo"
+            >
+              Загрузить
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+    </div>
 </template>
 
 <script>
