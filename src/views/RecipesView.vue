@@ -317,6 +317,39 @@
                 </v-col>
                 <v-col cols="12" sm="6">
                   <div class="d-flex flex-column">
+                    <label for="file-upload" class="mb-2">Файл рецепта</label>
+                    <template v-if="activeTab === 1">
+                      <template v-if="(!editedItem.video_aws_key && !videoToDelete) || videoToDelete">
+                        <VideoUploadForm
+                          :loading="isSaving"
+                          @file-selected="handleVideoUpload"
+                          @file-removed="clearVideoFile"
+                          @upload="save"
+                        />
+                      </template>
+                      <template v-else>
+                        <div class="d-flex align-center gap-2 mt-3">
+                          <v-btn color="primary" size="small" prepend-icon="mdi-eye" @click="viewVideo(editedItem.video_aws_key)">
+                            Посмотреть файл
+                          </v-btn>
+                          <v-btn color="error" size="small" prepend-icon="mdi-delete" @click="clearAwsVideo">
+                            Удалить файл
+                          </v-btn>
+                        </div>
+                      </template>
+                    </template>
+                    <template v-else>
+                      <div v-if="editedItem.video_aws_key" class="d-flex align-center gap-2 mt-2">
+                        <v-btn color="primary" size="small" prepend-icon="mdi-eye" @click="viewVideo(editedItem.video_aws_key)">
+                          Посмотреть файл
+                        </v-btn>
+                      </div>
+                      <div v-else class="mt-2" style="font-size: 16px; color: #888;">Отсутствует</div>
+                    </template>
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <div class="d-flex flex-column">
                     <label for="image-upload" class="mb-2">Изображение рецепта</label>
                     <input
                       id="image-upload"
@@ -332,38 +365,6 @@
                       style="max-width: 200px; max-height: 200px; cursor: pointer;"
                       @click="showImage(imagePreview || editedItem.photo)"
                     />
-                  </div>
-                </v-col>
-                <v-col cols="12">
-                  <div class="d-flex flex-column">
-                    <label for="video-upload" class="mb-2">Загрузить видео или файл</label>
-                    <input
-                      id="video-upload"
-                      type="file"
-                      accept="video/*,.pdf,.doc,.docx,.txt,.rtf,.zip,.rar"
-                      @change="handleVideoUpload"
-                      class="mb-2"
-                      :disabled="!!editedItem.video_url || !!editedItem.video_aws_key"
-                    />
-                    <div v-if="videoFile" class="d-flex align-center gap-2">
-                      <v-chip color="primary" closable @click:close="clearVideoFile">
-                        {{ videoFile.name }}
-                      </v-chip>
-                    </div>
-                    <div v-else-if="editedItem.video_aws_key" class="d-flex align-center gap-2">
-                      <v-chip color="success" closable @click:close="clearAwsVideo">
-                        {{ getFileTypeLabel(editedItem.video_aws_key) }}
-                      </v-chip>
-                      <v-btn
-                        color="primary"
-                        size="small"
-                        variant="text"
-                        prepend-icon="mdi-eye"
-                        @click="viewVideo(editedItem.video_aws_key)"
-                      >
-                        Просмотр
-                      </v-btn>
-                    </div>
                   </div>
                 </v-col>
                 <v-col cols="12" sm="3">
@@ -612,6 +613,7 @@
 <script>
 import axios from '@/plugins/axios'
 import { v4 as uuidv4 } from 'uuid'
+import VideoUploadForm from '@/components/VideoUploadForm.vue'
 
 // Утилита для получения upload_url
 async function getVideoUploadUrl(videoKey) {
@@ -643,6 +645,7 @@ function validateVideoFile(file) {
 
 export default {
   name: 'RecipesView',
+  components: { VideoUploadForm },
 
   data: () => ({
     activeTab: 0,
@@ -1135,27 +1138,36 @@ export default {
         this.isSaving = true;
         let videoAwsKey = this.editedItem.video_aws_key;
         if (videoAwsKey === '') videoAwsKey = null;
-        // Новая логика загрузки видео
-        if (this.videoFile) {
-          const err = validateVideoFile(this.videoFile);
-          if (err) throw new Error(err);
-          if (this.editedItem.video_aws_key) {
-            this.videoToDelete = this.editedItem.video_aws_key;
+
+        // Если нужно удалить старый файл и выбран новый
+        if (this.videoToDelete && this.videoFile) {
+          try {
+            await axios.delete(`/admin/recipe/video-delete/${encodeURIComponent(this.videoToDelete)}/`);
+          } catch (e) {
+            console.error('Ошибка при удалении файла:', e);
           }
           const key = uuidv4();
           const uploadUrl = await getVideoUploadUrl(key);
           await uploadFileToS3(uploadUrl, this.videoFile);
           videoAwsKey = key;
-        }
-        // Если нужно удалить видео
-        if (this.videoToDelete) {
+          this.videoToDelete = null;
+        } else if (this.videoToDelete && !this.videoFile) {
+          // Только удаление файла
           try {
             await axios.delete(`/admin/recipe/video-delete/${encodeURIComponent(this.videoToDelete)}/`);
           } catch (e) {
-            console.error('Ошибка при удалении видео:', e);
+            console.error('Ошибка при удалении файла:', e);
           }
           videoAwsKey = null;
           this.videoToDelete = null;
+        } else if (!this.videoToDelete && this.videoFile) {
+          // Только загрузка нового файла
+          const err = validateVideoFile(this.videoFile);
+          if (err) throw new Error(err);
+          const key = uuidv4();
+          const uploadUrl = await getVideoUploadUrl(key);
+          await uploadFileToS3(uploadUrl, this.videoFile);
+          videoAwsKey = key;
         }
 
         const instructionObj = {};
@@ -1369,7 +1381,7 @@ export default {
     },
 
     clearAwsVideo() {
-      if (confirm('Вы уверены, что хотите удалить загруженное видео?')) {
+      if (confirm('Вы уверены, что хотите удалить загруженный файл?')) {
         this.videoToDelete = this.editedItem.video_aws_key;
         this.editedItem.video_aws_key = null;
       }
