@@ -21,7 +21,7 @@
           <span>{{ file ? file.name : 'Видео не выбрано' }}</span>
         </div>
         <div class="file-actions">
-          <button class="btn btn-outline" @click.stop="removeFile">
+          <button class="btn btn-outline" type="button" @click.stop.prevent="removeFile">
             <i class="fas fa-times"></i> Удалить
           </button>
         </div>
