@@ -254,9 +254,9 @@
 
       <div class="pagination-container">
         <el-pagination
-          v-model:current-page="recipePagination.currentPage"
-          :page-size="recipePagination.pageSize"
-          :total="recipePagination.total"
+          v-model:current-page="currentPagination.currentPage"
+          :page-size="currentPagination.pageSize"
+          :total="currentPagination.total"
           @current-change="handlePageChange"
           layout="total, prev, pager, next"
           :pager-count="7"
@@ -652,7 +652,21 @@ export default {
     search: '',
     dialog: false,
     isSaving: false,
-    recipePagination: {
+    pendingPagination: {
+      currentPage: 1,
+      pageSize: 15,
+      total: 0,
+      sortBy: 'id',
+      sortOrder: 'ascending'
+    },
+    approvedPagination: {
+      currentPage: 1,
+      pageSize: 15,
+      total: 0,
+      sortBy: 'id',
+      sortOrder: 'ascending'
+    },
+    rejectedPagination: {
       currentPage: 1,
       pageSize: 15,
       total: 0,
@@ -762,6 +776,14 @@ export default {
           return []
       }
     },
+    currentPagination() {
+      switch (Number(this.activeTab)) {
+        case 0: return this.pendingPagination
+        case 1: return this.approvedPagination
+        case 2: return this.rejectedPagination
+        default: return this.approvedPagination
+      }
+    },
     tableTitle() {
       switch (Number(this.activeTab)) {
         case 0:
@@ -790,7 +812,17 @@ export default {
     },
     activeTab: {
       handler() {
-        this.recipePagination.currentPage = 1;
+        switch (this.activeTab) {
+          case 0:
+            this.pendingPagination.currentPage = 1;
+            break;
+          case 1:
+            this.approvedPagination.currentPage = 1;
+            break;
+          case 2:
+            this.rejectedPagination.currentPage = 1;
+            break;
+        }
         this.search = '';
         this.initialize();
       }
@@ -821,20 +853,21 @@ export default {
       try {
         this.loading = true;
         let response;
-        
         switch (this.activeTab) {
           case 0:
             response = await axios.get(`/admin/recipe/pending/?search=${query || ''}`);
             this.pendingRecipes = this.processRecipes(response.data);
+            this.pendingPagination.total = response.data.count || 0;
             break;
           case 1:
-            response = await axios.get(`/admin/recipe/approved/?page=${this.recipePagination.currentPage}&search=${query || ''}`);
+            response = await axios.get(`/admin/recipe/approved/?page=${this.approvedPagination.currentPage}&search=${query || ''}`);
             this.approvedRecipes = this.processRecipes(response.data);
-            this.recipePagination.total = response.data.count || 0;
+            this.approvedPagination.total = response.data.count || 0;
             break;
           case 2:
             response = await axios.get(`/admin/recipe/rejected/?search=${query || ''}`);
             this.rejectedRecipes = this.processRecipes(response.data);
+            this.rejectedPagination.total = response.data.count || 0;
             break;
         }
       } catch (error) {
@@ -847,19 +880,39 @@ export default {
     async initialize() {
       try {
         this.loading = true;
-        const params = new URLSearchParams({
-          page: this.recipePagination.currentPage.toString()
-        });
-
-        if (this.search) {
-          params.append('search', this.search);
+        let params;
+        switch (this.activeTab) {
+          case 0:
+            params = new URLSearchParams({
+              page: this.pendingPagination.currentPage.toString()
+            });
+            if (this.search) params.append('search', this.search);
+            if (this.pendingPagination.sortBy) {
+              const orderingPrefix = this.pendingPagination.sortOrder === 'descending' ? '-' : '';
+              params.append('ordering', orderingPrefix + this.pendingPagination.sortBy);
+            }
+            break;
+          case 1:
+            params = new URLSearchParams({
+              page: this.approvedPagination.currentPage.toString()
+            });
+            if (this.search) params.append('search', this.search);
+            if (this.approvedPagination.sortBy) {
+              const orderingPrefix = this.approvedPagination.sortOrder === 'descending' ? '-' : '';
+              params.append('ordering', orderingPrefix + this.approvedPagination.sortBy);
+            }
+            break;
+          case 2:
+            params = new URLSearchParams({
+              page: this.rejectedPagination.currentPage.toString()
+            });
+            if (this.search) params.append('search', this.search);
+            if (this.rejectedPagination.sortBy) {
+              const orderingPrefix = this.rejectedPagination.sortOrder === 'descending' ? '-' : '';
+              params.append('ordering', orderingPrefix + this.rejectedPagination.sortBy);
+            }
+            break;
         }
-
-        if (this.recipePagination.sortBy) {
-          const orderingPrefix = this.recipePagination.sortOrder === 'descending' ? '-' : '';
-          params.append('ordering', orderingPrefix + this.recipePagination.sortBy);
-        }
-
         let endpoint = '';
         switch (this.activeTab) {
           case 0:
@@ -872,19 +925,19 @@ export default {
             endpoint = '/admin/recipe/rejected/';
             break;
         }
-
         const response = await axios.get(`${endpoint}?${params.toString()}`);
-        
         switch (this.activeTab) {
           case 0:
             this.pendingRecipes = this.processRecipes(response.data);
+            this.pendingPagination.total = response.data.count || 0;
             break;
           case 1:
             this.approvedRecipes = this.processRecipes(response.data);
-            this.recipePagination.total = response.data.count || 0;
+            this.approvedPagination.total = response.data.count || 0;
             break;
           case 2:
             this.rejectedRecipes = this.processRecipes(response.data);
+            this.rejectedPagination.total = response.data.count || 0;
             break;
         }
       } catch (error) {
@@ -1326,15 +1379,29 @@ export default {
     },
 
     handlePageChange(page) {
-      this.recipePagination.currentPage = page;
+      this.currentPagination.currentPage = page;
       this.initialize();
     },
 
     handleSortChange({ prop, order }) {
       if (!prop) return;
-      this.recipePagination.sortBy = prop;
-      this.recipePagination.sortOrder = order || 'ascending';
-      this.recipePagination.currentPage = 1;
+      switch (this.activeTab) {
+        case 0:
+          this.pendingPagination.sortBy = prop;
+          this.pendingPagination.sortOrder = order || 'ascending';
+          this.pendingPagination.currentPage = 1;
+          break;
+        case 1:
+          this.approvedPagination.sortBy = prop;
+          this.approvedPagination.sortOrder = order || 'ascending';
+          this.approvedPagination.currentPage = 1;
+          break;
+        case 2:
+          this.rejectedPagination.sortBy = prop;
+          this.rejectedPagination.sortOrder = order || 'ascending';
+          this.rejectedPagination.currentPage = 1;
+          break;
+      }
       this.initialize();
     },
 
