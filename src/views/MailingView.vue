@@ -39,8 +39,8 @@
         </template>
 
         <template #[`item.url`]="{ item }">
-          <a :href="item.url" target="_blank" class="text-decoration-none">
-            {{ item.url }}
+          <a :href="item.url" target="_blank" class="text-decoration-none" :title="item.url">
+            {{ item.displayUrl || item.url }}
           </a>
         </template>
 
@@ -259,7 +259,8 @@ export default {
 
     const editMailing = (item) => {
       isEditing.value = true
-      editedItem.value = { ...item }
+      const originalMailing = mailings.value.find(m => m.id === item.id) || item
+      editedItem.value = { ...originalMailing }
       dialog.value = true
       form.value?.resetValidation()
     }
@@ -276,7 +277,18 @@ export default {
       saving.value = true
       try {
         if (isEditing.value) {
-          await axios.patch(`/admin/mailing/${editedItem.value.id}/`, editedItem.value)
+          const updateData = {
+            title: editedItem.value.title,
+            description: editedItem.value.description,
+            title_eng: editedItem.value.title_eng,
+            description_eng: editedItem.value.description_eng,
+            url: editedItem.value.url
+          }
+          if (editedItem.value.user !== undefined) {
+            updateData.user = editedItem.value.user
+          }
+          
+          await axios.patch(`/admin/mailing/${editedItem.value.id}/`, updateData)
           toast.success('Рассылка успешно обновлена')
         } else {
           await axios.post('/admin/mailing/', editedItem.value)
@@ -317,7 +329,7 @@ export default {
       return mailings.value.map(mailing => {
         return {
           ...mailing,
-          url: mailing.url.length > 10 ? mailing.url.slice(0, 10) + '...' : mailing.url
+          displayUrl: mailing.url.length > 30 ? mailing.url.slice(0, 30) + '...' : mailing.url
         }
       })
     })

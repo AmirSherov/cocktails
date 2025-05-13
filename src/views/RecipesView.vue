@@ -1246,11 +1246,12 @@ export default {
         });
 
         const userId = localStorage.getItem('userId');
+        const creatorId = this.editedItem.id ? (this.editedItem.user || 0) : (userId ? parseInt(userId) : 0);
         
         const recipeData = {
           title: this.editedItem.title,
           description: this.editedItem.description || '',
-          user: userId ? parseInt(userId) : 0,
+          user: creatorId,
           isEnabled: this.editedItem.isEnabled,
           is_alcoholic: this.editedItem.is_alcoholic,
           language: typeof this.editedItem.language === 'object' ? this.editedItem.language.value : this.editedItem.language,

@@ -199,7 +199,15 @@ export default {
 
       try {
         if (isEditing.value) {
-          await axios.patch(`/admin/FAQ/${editedItem.value.id}/`, editedItem.value)
+          const updateData = {
+            question: editedItem.value.question,
+            answer: editedItem.value.answer
+          }
+          if (editedItem.value.user !== undefined) {
+            updateData.user = editedItem.value.user
+          }
+          
+          await axios.patch(`/admin/FAQ/${editedItem.value.id}/`, updateData)
           toast.success('FAQ успешно обновлен')
         } else {
           await axios.post('/admin/FAQ/', editedItem.value)

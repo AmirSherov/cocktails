@@ -397,6 +397,9 @@ export default {
             if (form.value.image) {
               formData.append('photo', form.value.image)
             }
+            if (isEdit.value && form.value.user) {
+              formData.append('user', form.value.user)
+            }
 
             if (isEdit.value) {
               await axios.patch(`/admin/tool/${form.value.id}/`, formData, {
